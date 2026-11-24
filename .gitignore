@@ -247,3 +247,7 @@ __pycache__/
 
 # Release host deployment (keys and host layout live there, not in the repo)
 /deploy/
+
+# ForTMR4A: 本地构建链配置与 Rust 构建产物
+/termux/build.env
+/native/mod/target/

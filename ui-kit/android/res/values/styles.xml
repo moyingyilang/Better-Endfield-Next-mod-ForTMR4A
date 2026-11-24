@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Endfield UI X v0.1 — 文字与控件样式 -->
+<resources>
+    <!-- 字阶：中文负责阅读，英文/编号负责结构（label 加 0.05em 字距） -->
+    <style name="EUX.Text.Micro" parent="">
+        <item name="android:textSize">@dimen/eux_text_micro</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:textColor">@color/eux_ink_tertiary</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+    <style name="EUX.Text.Body" parent="">
+        <item name="android:textSize">@dimen/eux_text_base</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:lineSpacingMultiplier">1.6</item>
+        <item name="android:textColor">@color/eux_ink</item>
+    </style>
+    <style name="EUX.Text.Secondary" parent="EUX.Text.Body">
+        <item name="android:textColor">@color/eux_ink_secondary</item>
+    </style>
+    <style name="EUX.Text.Title" parent="">
+        <item name="android:textSize">@dimen/eux_text_xxl</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:lineSpacingMultiplier">1.1</item>
+        <item name="android:textColor">@color/eux_ink</item>
+    </style>
+
+    <!-- 按钮：直角，不圆角 -->
+    <style name="EUX.Button.Action" parent="android:Widget.Material.Button">
+        <item name="android:background">@drawable/eux_button_action</item>
+        <item name="android:textColor">@color/eux_on_action</item>
+        <item name="android:textSize">@dimen/eux_text_lg</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:minHeight">@dimen/eux_touch_min</item>
+        <item name="android:paddingStart">@dimen/eux_space_6</item>
+        <item name="android:paddingEnd">@dimen/eux_space_6</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+    <style name="EUX.Button.Control" parent="EUX.Button.Action">
+        <item name="android:background">@drawable/eux_button_control</item>
+        <item name="android:textColor">@color/eux_on_control</item>
+    </style>
+
+    <!-- 面板：1dp 线 + 抬升面；角括号由 v0.2 的 EuxPanelDrawable 提供 -->
+    <style name="EUX.Panel" parent="">
+        <item name="android:background">@drawable/eux_panel</item>
+        <item name="android:padding">@dimen/eux_space_4</item>
+    </style>
+
+    <style name="EUX.Tag" parent="">
+        <item name="android:background">@drawable/eux_tag_outline</item>
+        <item name="android:textSize">@dimen/eux_text_xs</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:textColor">@color/eux_ink_secondary</item>
+        <item name="android:paddingStart">@dimen/eux_space_2</item>
+        <item name="android:paddingEnd">@dimen/eux_space_2</item>
+        <item name="android:paddingTop">@dimen/eux_space_1</item>
+        <item name="android:paddingBottom">@dimen/eux_space_1</item>
+    </style>
+</resources>

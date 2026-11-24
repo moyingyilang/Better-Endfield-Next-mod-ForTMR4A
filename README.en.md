@@ -135,6 +135,10 @@ Windows stores its main configuration at `%LocalAppData%\BetterEndfieldNext\Bett
 | `manifests/`, `resources/` | Model/action/voice/combat indexes and generation inputs |
 | `web/` | Combat/gacha web analysis (outside CRX scope, to be moved out or retired) |
 | `scripts/`, `docs/` | Build/resource scripts, interfaces and research records |
+| `ui-kit/` | **Endfield UI X** design tokens and Android resources (`docs/ui/ENDFIELD-UI-X.md`) |
+| `termux/` | Termux build chain (adapted from JMNeXt builders, MPL-2.0) |
+| `native/mod/`, `mods/` | C ABI bridge over ForTMR2 `efml-core` (Rust leaf) and mod package conventions |
+| `third_party/ForTMR2/` | ForTMR2 submodule (pinned commit) |
 
 See [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md) for internal protocols. Research directories and historical records do not represent shipped features.
 
@@ -144,6 +148,13 @@ This branch builds Android artifacts on a Linux host and no longer ships a Windo
 
 ```bash
 cd android && ./gradlew :app:assembleRelease --no-daemon
+```
+
+On Termux use the packaged chain (environment checks / artifact freshness / aapt2+apksigner verification):
+
+```bash
+cp termux/env.example termux/build.env
+./termux/10-enter.sh && ./termux/20-build-android.sh && ./termux/30-verify-apk.sh
 ```
 
 Build scripts consume generated repository indexes. Refresh affected data after game updates; local research outputs and original game payloads must not be packaged as release assets.

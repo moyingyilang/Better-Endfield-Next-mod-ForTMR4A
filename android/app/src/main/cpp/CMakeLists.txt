@@ -211,3 +211,13 @@ target_link_libraries(betterendfieldnext_android PRIVATE
     ${log_library}
     ${dl_library}
     ${mediandk_library})
+
+# ForTMR4A：可选的 ForTMR2 mod 格式桥（Rust 叶子）。默认关闭；
+# 打开后 native/mod 会用 cargo 产出 libbe_mod.a 并链接进本库。
+option(BETTER_ENDFIELD_NEXT_MOD_RUST "Build and link the Rust mod-format bridge (needs cargo + NDK)" OFF)
+if(BETTER_ENDFIELD_NEXT_MOD_RUST)
+    add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/mod"
+        "${CMAKE_CURRENT_BINARY_DIR}/be-mod-rust")
+    target_link_libraries(betterendfieldnext_android PRIVATE be_mod)
+    add_dependencies(betterendfieldnext_android be_mod_rust)
+endif()

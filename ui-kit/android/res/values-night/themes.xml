@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Endfield UI X v0.1 — 暗色主题（系统夜间模式下自动生效） -->
+<resources>
+    <style name="Theme.EUX" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/eux_surface</item>
+        <item name="android:colorAccent">@color/eux_action</item>
+        <item name="android:colorPrimary">@color/eux_surface</item>
+        <item name="android:colorPrimaryDark">@color/eux_surface_sunken</item>
+        <item name="android:statusBarColor">@color/eux_surface</item>
+        <item name="android:navigationBarColor">@color/eux_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:textColorPrimary">@color/eux_ink</item>
+        <item name="android:textColorSecondary">@color/eux_ink_secondary</item>
+        <item name="android:textColorHint">@color/eux_ink_tertiary</item>
+    </style>
+</resources>

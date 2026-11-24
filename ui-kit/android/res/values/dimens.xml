@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Endfield UI X v0.1 — 尺寸/字阶令牌 -->
+<resources>
+    <!-- 间距基 4dp -->
+    <dimen name="eux_space_1">4dp</dimen>
+    <dimen name="eux_space_2">8dp</dimen>
+    <dimen name="eux_space_3">12dp</dimen>
+    <dimen name="eux_space_4">16dp</dimen>
+    <dimen name="eux_space_6">24dp</dimen>
+    <dimen name="eux_space_8">32dp</dimen>
+    <dimen name="eux_space_12">48dp</dimen>
+    <dimen name="eux_space_16">64dp</dimen>
+    <dimen name="eux_space_24">96dp</dimen>
+
+    <!-- 字阶（sp） -->
+    <dimen name="eux_text_micro">10sp</dimen>
+    <dimen name="eux_text_xs">12sp</dimen>
+    <dimen name="eux_text_sm">14sp</dimen>
+    <dimen name="eux_text_base">16sp</dimen>
+    <dimen name="eux_text_lg">20sp</dimen>
+    <dimen name="eux_text_xl">24sp</dimen>
+    <dimen name="eux_text_xxl">32sp</dimen>
+    <dimen name="eux_text_xxxl">40sp</dimen>
+    <dimen name="eux_text_title">52sp</dimen>
+    <dimen name="eux_text_hero">72sp</dimen>
+
+    <!-- 圆角 -->
+    <dimen name="eux_radius_xs">2dp</dimen>
+    <dimen name="eux_radius_sm">4dp</dimen>
+    <dimen name="eux_radius_md">6dp</dimen>
+
+    <!-- 切角 -->
+    <dimen name="eux_cut_sm">6dp</dimen>
+    <dimen name="eux_cut_md">10dp</dimen>
+    <dimen name="eux_cut_lg">16dp</dimen>
+
+    <!-- 描边 -->
+    <dimen name="eux_stroke">1dp</dimen>
+
+    <!-- 交互 -->
+    <dimen name="eux_touch_min">44dp</dimen>
+    <dimen name="eux_panel_gutter">16dp</dimen>
+    <dimen name="eux_panel_gutter_compact">8dp</dimen>
+    <dimen name="eux_side_rail_width">56dp</dimen>
+    <dimen name="eux_item_slot">64dp</dimen>
+    <dimen name="eux_corner_bracket">12dp</dimen>
+    <dimen name="eux_hatch_period">6dp</dimen>
+    <dimen name="eux_registration_strip">3dp</dimen>
+</resources>

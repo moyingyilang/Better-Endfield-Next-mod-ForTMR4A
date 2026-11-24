@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Endfield UI X v0.1 — 亮色主题 -->
+<resources>
+    <style name="Theme.EUX" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/eux_surface</item>
+        <item name="android:colorAccent">@color/eux_action</item>
+        <item name="android:colorPrimary">@color/eux_surface</item>
+        <item name="android:colorPrimaryDark">@color/eux_surface_sunken</item>
+        <item name="android:statusBarColor">@color/eux_surface</item>
+        <item name="android:navigationBarColor">@color/eux_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:textColorPrimary">@color/eux_ink</item>
+        <item name="android:textColorSecondary">@color/eux_ink_secondary</item>
+        <item name="android:textColorHint">@color/eux_ink_tertiary</item>
+    </style>
+
+    <!-- 游戏内面板：默认暗色（游戏场景偏暗），不随系统亮暗切换 -->
+    <style name="Theme.EUX.Overlay" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorAccent">@color/eux_action</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:textColorPrimary">@color/eux_ink_inverse</item>
+    </style>
+</resources>

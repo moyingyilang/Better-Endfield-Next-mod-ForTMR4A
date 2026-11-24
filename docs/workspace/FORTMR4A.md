@@ -177,7 +177,21 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 - `ui` 的 Windows 实现 `touch_input.cpp`、`touch_pointer_policy.cpp` 归档（Android 走 `android_compat`，头文件保留）。
 - `custom_model/CMakeLists.txt` 移除引用 `native/tests/` 的 6 个测试 target，避免 CMake 配置失败。
 
-### 待办（P2 起）
+### P2：接入 ForTMR2 + Termux 构建链
+
+- `third_party/ForTMR2` 以 submodule 固定到 `1c60350`；不复制上游源码。
+- `native/mod`（`be-mod-ffi`）：C ABI 包装 `efml-core`（`be_mod_validate` / `be_mod_manifest_id` /
+  `be_mod_abi_version`），`panic = "abort"`，`unsafe` 只在薄 shim；头文件
+  `native/shared/include/BetterEndfieldNext/ModPackage.h`。
+- Android CMake 增加可选开关 `BETTER_ENDFIELD_NEXT_MOD_RUST`（默认 OFF），
+  打开后 cargo 产出 `libbe_mod.a` 并链接进 `betterendfieldnext_android`。
+- `mods/README.md`：`mod.toml` 约定、BEN 扩展段 `[ext.ben.*]`、参考包路径。
+- Termux 构建链 `termux/`（改编自 JMNeXt `android-termux-builders4JMNeXt`，MPL-2.0）：
+  环境自检、`assembleRelease`、产物新鲜度、aapt2/apksigner 验收；`termux/build.env` 不入库。
+- 验证：`efml --json validate third_party/ForTMR2/mods/example-mod` 通过；
+  `cargo run --bin be-mod-validate` 对同一参考包通过。
+
+### 待办（P3 起）
 
 - 清理保留模块内的 Windows 残留（D3D11 捕获、GDI+ overlay、`driver_audio_win`、`native/shared/host` 非共用部分）。
 - 接入 ForTMR2：`efml-core` / `efml-cli` / `lib/efml4a_source`；跑通 `mods/example-mod` 校验。

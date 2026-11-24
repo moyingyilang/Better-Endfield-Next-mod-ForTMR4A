@@ -1,0 +1,25 @@
+[package]
+name = "be-mod-ffi"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "ForTMR2 efml-core 的 C ABI 适配层（Android-only mod 格式桥）"
+
+[lib]
+name = "be_mod"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "be-mod-validate"
+path = "src/bin/be-mod-validate.rs"
+
+[dependencies]
+efml-core = { path = "../../third_party/ForTMR2/native/crates/efml-core" }
+
+# CRX 硬规则：panic = abort，禁止 unwinding 穿过 FFI。
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true

@@ -137,6 +137,10 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 | `manifests/`、`resources/` | 模型/动作/语音/战斗索引及生成输入 |
 | `web/` | 战斗与寻访网页分析（CRX 范围之外，待迁出或停用） |
 | `scripts/`、`docs/` | 构建和资源生成脚本、接口文档与研究记录 |
+| `ui-kit/` | **Endfield UI X** 设计令牌与 Android 资源（`docs/ui/ENDFIELD-UI-X.md`） |
+| `termux/` | Termux 构建链（改编自 JMNeXt builders，MPL-2.0） |
+| `native/mod/`、`mods/` | ForTMR2 `efml-core` 的 C ABI 桥（Rust 叶子）与 mod 包格式约定 |
+| `third_party/ForTMR2/` | ForTMR2 submodule（固定 commit） |
 
 内部运行时协议见 [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md)。研究目录和历史记录不代表全部已发布功能。
 
@@ -146,6 +150,13 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 
 ```bash
 cd android && ./gradlew :app:assembleRelease --no-daemon
+```
+
+在 Termux 上推荐用封装好的构建链（环境自检 / 产物新鲜度 / aapt2+apksigner 验收）：
+
+```bash
+cp termux/env.example termux/build.env   # 按本机填写
+./termux/10-enter.sh && ./termux/20-build-android.sh && ./termux/30-verify-apk.sh
 ```
 
 构建脚本使用仓库内已生成的资源索引；游戏更新后需先更新相应资料，不应把本机研究输出或游戏资源载荷打入发布包。

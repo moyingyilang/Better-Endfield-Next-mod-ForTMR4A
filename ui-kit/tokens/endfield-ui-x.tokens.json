@@ -1,0 +1,176 @@
+{
+  "name": "Endfield UI X",
+  "shortName": "EUX",
+  "version": "0.1.0",
+  "description": "Android-first Endfield-style design tokens, adapted from the MIT-licensed icaruszezen/endfield-ui design system. No official game assets are included.",
+  "license": "AGPL-3.0-or-later (adaptation); upstream tokens MIT (see ui-kit/NOTICE.md)",
+  "color": {
+    "light": {
+      "surface": "#FFFFFFFF",
+      "surfaceRaised": "#FFFAFAFA",
+      "surfaceSunken": "#FFF2F2F2",
+      "surfaceMuted": "#FFE6E6E6",
+      "surfaceInverse": "#FF191919",
+      "ink": "#FF191919",
+      "inkSecondary": "#FF626262",
+      "inkTertiary": "#FF8A8A8A",
+      "inkDisabled": "#FFB3B3B3",
+      "inkInverse": "#FFFFFFFF",
+      "line": "#FFD9D9D9",
+      "lineStrong": "#FFB3B3B3",
+      "action": "#FFFFFA00",
+      "actionPressed": "#FFEEEA00",
+      "onAction": "#FF191919",
+      "accentInk": "#FF6B5D00",
+      "control": "#FF383838",
+      "controlHover": "#FF484848",
+      "controlPressed": "#FF282828",
+      "onControl": "#FFEEEEEE",
+      "button": "#FF383838",
+      "buttonHover": "#FF484848",
+      "buttonPressed": "#FF282828",
+      "onButton": "#FFEEEEEE",
+      "focus": "#FF191919",
+      "scrim": "#80000000",
+      "danger": "#FFDE0909",
+      "success": "#FF007F43",
+      "warning": "#FFB74E00",
+      "info": "#FF25759F"
+    },
+    "dark": {
+      "surface": "#FF141414",
+      "surfaceRaised": "#FF1F1F1F",
+      "surfaceSunken": "#FF000000",
+      "surfaceMuted": "#FF282828",
+      "surfaceInverse": "#FFFAFAFA",
+      "ink": "#FFFAFAFA",
+      "inkSecondary": "#FFB3B3B3",
+      "inkTertiary": "#FF8A8A8A",
+      "inkDisabled": "#FF626262",
+      "inkInverse": "#FF191919",
+      "line": "#FF383838",
+      "lineStrong": "#FF626262",
+      "action": "#FFFFFA00",
+      "actionPressed": "#FFEEEA00",
+      "onAction": "#FF191919",
+      "accentInk": "#FFFFFA00",
+      "control": "#FF383838",
+      "controlHover": "#FF484848",
+      "controlPressed": "#FF282828",
+      "onControl": "#FFEEEEEE",
+      "button": "#33FFFFFF",
+      "buttonHover": "#4DFFFFFF",
+      "buttonPressed": "#26FFFFFF",
+      "onButton": "#FFD9D9D9",
+      "focus": "#FFFFFA00",
+      "scrim": "#B3000000",
+      "danger": "#FFF74040",
+      "success": "#FF00D872",
+      "warning": "#FFFC6C00",
+      "info": "#FF2D8FC2"
+    },
+    "roles": {
+      "notice": "#FFFC6C00",
+      "gain": "#FFBCE41D",
+      "data": "#FF2A84B4",
+      "region": "#FF06A2A2",
+      "alert": "#FFF62A2A",
+      "confirm": "#FF00D872",
+      "special": "#FF904EF0"
+    },
+    "rarity": {
+      "r1": "#FF24BAFC",
+      "r2": "#FF904EF6",
+      "r3": "#FFFCBA00",
+      "r4": "#FFFC6C00"
+    },
+    "registration": {
+      "magenta": "#FFEC008C",
+      "cyan": "#FF00AEEF",
+      "yellow": "#FFFFF200"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": ["HarmonyOS Sans SC", "Noto Sans SC", "Source Han Sans SC", "sans-serif"],
+      "display": ["Archivo", "Montserrat", "HarmonyOS Sans SC", "sans-serif-medium"],
+      "latin": ["Outfit", "Urbanist", "sans-serif"],
+      "tech": ["Space Grotesk", "monospace"],
+      "mono": ["JetBrains Mono", "Cascadia Code", "monospace"]
+    },
+    "sizeSp": {
+      "micro": 10,
+      "xs": 12,
+      "sm": 14,
+      "base": 16,
+      "lg": 20,
+      "xl": 24,
+      "xxl": 32,
+      "xxxl": 40,
+      "title": 52,
+      "hero": 72,
+      "ghostMin": 80,
+      "ghostMax": 200
+    },
+    "lineHeightMultiplier": {
+      "micro": 1.0,
+      "xs": 1.25,
+      "sm": 1.4,
+      "base": 1.6,
+      "lg": 1.2,
+      "xl": 1.1,
+      "xxlAndUp": 1.0
+    },
+    "letterSpacingEm": {
+      "label": 0.05,
+      "ghost": -0.04
+    }
+  },
+  "spacingDp": [4, 8, 12, 16, 24, 32, 48, 64, 96],
+  "radiusDp": {
+    "none": 0,
+    "xs": 2,
+    "sm": 4,
+    "md": 6,
+    "full": 9999
+  },
+  "cutDp": {
+    "sm": 6,
+    "md": 10,
+    "lg": 16
+  },
+  "strokeDp": {
+    "hairline": 1,
+    "strong": 1
+  },
+  "shadowDp": {
+    "xs": "0 0 4 rgba(0,0,0,0.25)",
+    "sm": "0 0 8 rgba(0,0,0,0.25)",
+    "md": "0 0 12 rgba(0,0,0,0.30)",
+    "lg": "0 0 24 rgba(0,0,0,0.30)"
+  },
+  "motionMs": {
+    "instant": 50,
+    "fast": 200,
+    "base": 300,
+    "slow": 400,
+    "slower": 600
+  },
+  "easing": {
+    "standard": "ease",
+    "emphasis": "ease-in-out",
+    "exit": "ease-out"
+  },
+  "motif": {
+    "cornerBracketDp": [8, 12, 16],
+    "hatchPeriodDp": 6,
+    "registrationStripDp": 3,
+    "tickStepDeg": 15
+  },
+  "android": {
+    "minTouchTargetDp": 44,
+    "panelGutterDp": 16,
+    "panelGutterCompactDp": 8,
+    "overlayDefaultTheme": "dark"
+  }
+}
