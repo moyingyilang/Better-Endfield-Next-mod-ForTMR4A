@@ -137,7 +137,7 @@ Windows stores its main configuration at `%LocalAppData%\BetterEndfieldNext\Bett
 | `scripts/`, `docs/` | Build/resource scripts, interfaces and research records |
 | `ui-kit/` | **Endfield UI X** design tokens and Android resources (`docs/ui/ENDFIELD-UI-X.md`) |
 | `termux/` | Termux build chain (adapted from JMNeXt builders, MPL-2.0) |
-| `native/mod/`, `mods/` | C ABI bridge over ForTMR2 `efml-core` (Rust leaf) and mod package conventions |
+| `native/mod/`, `native/bem/` | C ABI bridge over ForTMR2 `efml-core`, BEM reader/validator (Rust leaves) and mod package conventions |
 | `third_party/ForTMR2/` | ForTMR2 submodule (pinned commit) |
 
 See [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md) for internal protocols. Research directories and historical records do not represent shipped features.

@@ -229,3 +229,11 @@ if(BETTER_ENDFIELD_NEXT_MOD_RUST)
     target_link_libraries(betterendfieldnext_android PRIVATE be_mod)
     add_dependencies(betterendfieldnext_android be_mod_rust)
 endif()
+
+option(BETTER_ENDFIELD_NEXT_BEM_RUST "Build and link the Rust BEM reader (needs cargo + NDK)" OFF)
+if(BETTER_ENDFIELD_NEXT_BEM_RUST)
+    add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/bem"
+        "${CMAKE_CURRENT_BINARY_DIR}/be-bem-rust")
+    target_link_libraries(betterendfieldnext_android PRIVATE be_bem)
+    add_dependencies(betterendfieldnext_android be_bem_rust)
+endif()

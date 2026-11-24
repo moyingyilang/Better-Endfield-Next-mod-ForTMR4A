@@ -1,0 +1,30 @@
+[package]
+name = "be-bem"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "BEM 容器读取与业务校验（CRX：Rust 叶子，C ABI）"
+
+[lib]
+name = "be_bem"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "be-bem"
+path = "src/bin/be-bem.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+ruzstd = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true

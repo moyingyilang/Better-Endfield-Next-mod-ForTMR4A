@@ -206,7 +206,15 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 - 验证：`efml --json validate third_party/ForTMR2/mods/example-mod` 通过；
   `cargo run --bin be-mod-validate` 对同一参考包通过。
 
-### 待办（P3 起）
+### P3 起步：业务链 CRX 切片 1（BEM 读取/校验）
+
+- 新增 `native/bem`（Rust 叶子 `be-bem`）：容器 + manifest 结构 + payload 引用 + 长度自洽 + zstd 解压校验。
+- C ABI：`native/shared/include/BetterEndfieldNext/BemPackage.h`；Android 可选开关 `BETTER_ENDFIELD_NEXT_BEM_RUST`。
+- 测试：5 项 `cargo test` 通过（含仓库夹具 `installer-fixture.bem`）；C 侧 harness 实链
+  `libbe_bem.a` 验证 `be_bem_validate`/`be_bem_info_json`；与 Python `bem_tool.py inspect` 关键字段一致。
+- 台账与后续切片见 [CRX-REWRITE.md](CRX-REWRITE.md)。
+
+### 待办（P3 剩余）
 
 - 清理保留模块内的 Windows 残留（D3D11 捕获、GDI+ overlay、`driver_audio_win`、`native/shared/host` 非共用部分）。
 - 接入 ForTMR2：`efml-core` / `efml-cli` / `lib/efml4a_source`；跑通 `mods/example-mod` 校验。

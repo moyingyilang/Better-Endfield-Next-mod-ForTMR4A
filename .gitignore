@@ -251,3 +251,4 @@ __pycache__/
 # ForTMR4A: 本地构建链配置与 Rust 构建产物
 /termux/build.env
 /native/mod/target/
+/native/bem/target/
