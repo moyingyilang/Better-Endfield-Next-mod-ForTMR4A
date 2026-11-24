@@ -243,3 +243,17 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 - 清理保留模块内的 Windows 残留（D3D11 捕获、GDI+ overlay、`driver_audio_win`、`native/shared/host` 非共用部分）。
 - 接入 ForTMR2：`efml-core` / `efml-cli` / `lib/efml4a_source`；跑通 `mods/example-mod` 校验。
 - BEM→IR 转换器（Rust 叶子，独立仓/子目录）。
+
+## 远程仓库改名记录（2026-11-25）
+
+本地改名之后，远程也已完成（此前只改了本地，GitHub 上仍显示旧名，容易误判）：
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| GitHub 仓库 | `moyingyilang/Better-Endfield` | `moyingyilang/Better-Endfield-Next-mod-ForTMR4A` |
+| 默认分支 | `main` | `better-endfield-next-mod-ForTMR4A` |
+| 远端 HEAD | `6ad7719` | `fd720fa`（本地 17 个提交已推送） |
+
+- 重命名方式：GitHub API（`POST .../branches/main/rename` + `PATCH .../default_branch`）与 `gh repo rename`；
+- 本地 `origin` 已指向新 SSH URL，分支 upstream 已更新；
+- 仓库仍是 fork（`isFork=true`，父仓库 `Dr-hydra/Better-Endfield`）；如需脱离 fork 网络，只能在 GitHub 网页操作（API 不支持）。
