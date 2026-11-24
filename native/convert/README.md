@@ -1,6 +1,7 @@
 # native/convert —— 多格式源接入（BEM / EFMI / EFF3 / mod.toml）
 
 ForTMR4A 的“**实时转换**”入口：导入时在进程内识别来源格式并转换，不再调用外部 CLI 或 Python。
+转换器本身是 submodule：`third_party/Converter4BENeXt`（上游 `main`，含 C ABI 与 EFF stride 修复）。
 
 ```
 BEM 文件 ────────────────┐
@@ -13,8 +14,9 @@ mod.toml（ForTMR2） ─────→ 交给 native/mod 的 efml-core 链（�
 
 - **BEM 不淘汰**：BEM 是原生格式；历史包、Converter4BENeXt 的输出、未来的转换结果都走同一条
   读取/校验链（`native/bem`）。
-- **Converter4BENeXt 保留自己的 CLI 行为**：本仓只加了 C ABI 与 `lib` 构建目标，
-  见 `third_party/Converter4BENeXt/VENDORED.md`。
+- **Converter4BENeXt 保留自己的 CLI 行为**：C ABI 与 `lib` 构建目标已合入上游 `main`；
+  本仓按 submodule 固定 commit，不复制源码。克隆时要带 submodule：
+  `git submodule update --init --recursive`。
 - **进程内**：EFMI/EFF 转换不 spawn 子进程，Android 上直接链接静态库。
 
 ## C ABI

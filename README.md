@@ -142,7 +142,7 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 | `native/mod/`、`native/bem/`、`native/convert/` | ForTMR2 `efml-core` 的 C ABI 桥、BEM 读取/校验、EFMI/EFF3→BEM 进程内转换 |
 | `native/ir/` | BEM → ForTMR2 `mod.toml`/IR 转换（Rust 叶子，C ABI） |
 | `native/pipeline/` | 统一导入入口 `be_source_to_mod`（C 主链路：BEM/EFMI/EFF3 → mod 目录） |
-| `third_party/Converter4BENeXt/` | vendored 转换器（AGPL，含 C ABI 与静态库目标） |
+| `third_party/Converter4BENeXt/` | EFMI/EFF→BEM 转换器 submodule（AGPL，含 C ABI 与静态库目标） |
 | `third_party/ForTMR2/` | ForTMR2 submodule（固定 commit） |
 
 内部运行时协议见 [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md)。研究目录和历史记录不代表全部已发布功能。

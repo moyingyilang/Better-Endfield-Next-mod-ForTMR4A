@@ -216,7 +216,7 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 
 ### P3 切片 2：多格式源接入 + Converter4BENeXt 进程内转换
 
-- `third_party/Converter4BENeXt`（vendored，AGPL）新增 C ABI 与静态库；`native/convert` 提供
+- `third_party/Converter4BENeXt`（submodule，AGPL）新增 C ABI 与静态库；`native/convert` 提供
   `be_source_probe` / `be_source_convert_to_bem`，支持 BEM / EFMI / EFF Format 3 / mod.toml。
 - **BEM 不淘汰**：BEM 仍是原生主线，所有来源最终进入 `native/bem` 校验链。
 - 实测：EFMI `edmin_maid` → 73 MB BEM → 校验通过；EFF3 `lvtsfw` → 26 MB BEM → 校验通过；

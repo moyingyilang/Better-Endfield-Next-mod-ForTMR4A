@@ -2,3 +2,7 @@
 	path = third_party/ForTMR2
 	url = https://github.com/moyingyilang/ForTMR2.git
 	ignore = untracked
+[submodule "third_party/Converter4BENeXt"]
+	path = third_party/Converter4BENeXt
+	url = https://github.com/moyingyilang/Converter4BENeXt.git
+	ignore = untracked

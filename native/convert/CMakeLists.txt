@@ -1,4 +1,4 @@
-# ForTMR4A：多格式源接入（Converter4BENeXt vendored + C ABI）
+# ForTMR4A：多格式源接入（Converter4BENeXt submodule + C ABI）
 #
 # 满足两条约束：
 #   1. BEM 不淘汰 —— BEM 是原生格式，直接走 BEM 读取/校验链；

@@ -140,7 +140,7 @@ Windows stores its main configuration at `%LocalAppData%\BetterEndfieldNext\Bett
 | `native/mod/`, `native/bem/`, `native/convert/` | C ABI bridge over ForTMR2 `efml-core`, BEM reader/validator, and in-process EFMI/EFF3 → BEM conversion |
 | `native/ir/` | BEM → ForTMR2 `mod.toml`/IR converter (Rust leaf, C ABI) |
 | `native/pipeline/` | Unified import entry `be_source_to_mod` (C main line: BEM/EFMI/EFF3 → mod dir) |
-| `third_party/Converter4BENeXt/` | Vendored converter (AGPL, with C ABI and static-library target) |
+| `third_party/Converter4BENeXt/` | EFMI/EFF→BEM converter submodule (AGPL, with C ABI and static-library target) |
 | `third_party/ForTMR2/` | ForTMR2 submodule (pinned commit) |
 
 See [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md) for internal protocols. Research directories and historical records do not represent shipped features.

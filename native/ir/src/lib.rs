@@ -549,6 +549,159 @@ fn toml_string(value: &str) -> String {
     format!("{:?}", value)
 }
 
+
+// ------------------------------------------------------------------ BEM ZIP 容器（规范 §14）
+
+fn infer_minor(manifest: &Value) -> u16 {
+    if let Some(hint) = manifest.get("format_version") {
+        let text = match hint {
+            Value::String(text) => Some(text.clone()),
+            Value::Number(number) => number.as_u64().map(|value| format!("1.{value}")),
+            _ => None,
+        };
+        if let Some(text) = text {
+            if let Some((_, minor)) = text.split_once('.') {
+                if let Ok(minor) = minor.trim().parse::<u16>() {
+                    if minor <= 5 {
+                        return minor;
+                    }
+                }
+            }
+        }
+    }
+    if manifest.get("drivers").is_some()
+        || manifest.get("root_offset").is_some()
+        || manifest.get("visual_root_offset").is_some()
+        || json_has_material_overrides(manifest)
+    {
+        return 5;
+    }
+    if manifest.get("parameters").is_some() || manifest.get("mesh_deformations").is_some() {
+        return 3;
+    }
+    if manifest
+        .get("target")
+        .and_then(|target| target.get("resources"))
+        .is_some()
+    {
+        return 4;
+    }
+    if manifest.get("texture_slots").is_some() {
+        return 2;
+    }
+    if manifest.get("option_groups").is_some() || manifest.get("component_rules").is_some() {
+        return 1;
+    }
+    0
+}
+
+fn json_has_material_overrides(value: &Value) -> bool {
+    match value {
+        Value::Array(items) => items.iter().any(json_has_material_overrides),
+        Value::Object(map) => {
+            map.contains_key("material_overrides") || map.values().any(json_has_material_overrides)
+        }
+        _ => false,
+    }
+}
+
+/// 读 BEM 原生 ZIP 容器：`manifest.json` + `payloads/NNNN.bin`（可被单一顶层目录包裹）。
+fn read_bem_zip(zip_path: &Path) -> Result<(String, Vec<Vec<u8>>, u16), Error> {
+    use std::collections::{BTreeMap, BTreeSet};
+    use zip::ZipArchive;
+
+    let file = fs::File::open(zip_path)?;
+    let mut archive =
+        ZipArchive::new(file).map_err(|e| Error::Ir(format!("ZIP 打开失败：{e}")))?;
+
+    let mut names = Vec::with_capacity(archive.len());
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|e| Error::Ir(format!("ZIP 条目读取失败：{e}")))?;
+        if entry.is_dir() {
+            continue;
+        }
+        names.push((index, entry.name().to_string()));
+    }
+
+    // 顶层目录容错：只有一个顶层目录时剥掉它。
+    let roots: BTreeSet<String> = names
+        .iter()
+        .map(|(_, name)| name.split('/').next().unwrap_or("").to_string())
+        .collect();
+    let prefix = if roots.len() == 1 && names.iter().any(|(_, name)| name.contains('/')) {
+        format!("{}/", roots.iter().next().unwrap())
+    } else {
+        String::new()
+    };
+
+    let mut manifest: Option<String> = None;
+    let mut payloads: BTreeMap<u32, Vec<u8>> = BTreeMap::new();
+    for (index, name) in &names {
+        let relative = name.strip_prefix(prefix.as_str()).unwrap_or(name);
+        if relative == "manifest.json" {
+            let entry = archive
+                .by_index(*index)
+                .map_err(|e| Error::Ir(format!("ZIP 条目读取失败：{e}")))?;
+            let mut text = String::new();
+            use std::io::Read;
+            let mut reader = entry;
+            reader
+                .read_to_string(&mut text)
+                .map_err(|e| Error::Ir(format!("manifest.json 读取失败：{e}")))?;
+            manifest = Some(text);
+        } else if let Some(rest) = relative.strip_prefix("payloads/") {
+            if let Some(stem) = rest.strip_suffix(".bin") {
+                if let Ok(id) = stem.parse::<u32>() {
+                    let mut entry = archive
+                        .by_index(*index)
+                        .map_err(|e| Error::Ir(format!("ZIP 条目读取失败：{e}")))?;
+                    let mut bytes = Vec::new();
+                    use std::io::Read;
+                    entry
+                        .read_to_end(&mut bytes)
+                        .map_err(|e| Error::Ir(format!("payload {id} 读取失败：{e}")))?;
+                    payloads.insert(id, bytes);
+                }
+            }
+        }
+    }
+
+    let manifest = manifest.ok_or_else(|| {
+        Error::Ir("ZIP 不是 BEM 容器：缺少 manifest.json（可能只是普通压缩包）".into())
+    })?;
+    let value: Value = serde_json::from_str(&manifest)
+        .map_err(|e| Error::Ir(format!("ZIP manifest.json 非法：{e}")))?;
+    let minor = infer_minor(&value);
+
+    let count = payloads.len() as u32;
+    let mut ordered = Vec::with_capacity(payloads.len());
+    for id in 0..count {
+        let bytes = payloads.remove(&id).ok_or_else(|| {
+            Error::Ir(format!("ZIP package is missing payload {id}"))
+        })?;
+        ordered.push(bytes);
+    }
+    if let Some(extra) = payloads.keys().next() {
+        return Err(Error::Ir(format!("ZIP payload 编号不连续：出现 {extra}")));
+    }
+    Ok((manifest, ordered, minor))
+}
+
+/// BEM 原生 ZIP 容器 → mod 目录。
+pub fn convert_bem_zip_to_mod(
+    zip_path: impl AsRef<Path>,
+    out_dir: impl AsRef<Path>,
+    options: &Options,
+) -> Result<Report, Error> {
+    let (manifest, payloads, minor) = read_bem_zip(zip_path.as_ref())?;
+    let bytes = be_bem::write_bem_raw(minor, manifest.as_bytes(), &payloads)?;
+    let package = be_bem::BemPackage::from_bytes(bytes)?;
+    package.validate().map_err(|e| Error::BemValidate(e.to_string()))?;
+    convert_package(&package, out_dir.as_ref(), options)
+}
+
 // ------------------------------------------------------------------ C ABI
 
 pub const BE_IR_ABI_VERSION: u32 = 1;
@@ -625,6 +778,40 @@ mod tests {
         assert_eq!(vertex_format_name(6, 4), "R8G8B8A8_UINT");
         assert_eq!(texture_format_name(25, true), "BC7_UNORM_SRGB");
         assert_eq!(texture_format_name(10, false), "BC1_UNORM");
+    }
+
+    #[test]
+    fn converts_bem_zip_container() {
+        if !fixture().is_file() {
+            return;
+        }
+        let package = be_bem::BemPackage::open(fixture()).expect("open fixture");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let zip_path = dir.path().join("fixture.bem.zip");
+        {
+            use std::io::Write;
+            let file = fs::File::create(&zip_path).expect("create zip");
+            let mut writer = zip::ZipWriter::new(file);
+            let stored: zip::write::SimpleFileOptions =
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored);
+            writer.start_file("manifest.json", stored).expect("manifest entry");
+            writer
+                .write_all(package.manifest_bytes())
+                .expect("manifest write");
+            for (id, _) in package.payloads.iter().enumerate() {
+                writer
+                    .start_file(format!("payloads/{id:04}.bin"), stored)
+                    .expect("payload entry");
+                let bytes = package.read_payload(id as u32).expect("payload");
+                writer.write_all(&bytes).expect("payload write");
+            }
+            writer.finish().expect("finish zip");
+        }
+        let out = dir.path().join("mod");
+        let report = convert_bem_zip_to_mod(&zip_path, &out, &Options::default()).expect("zip convert");
+        assert_eq!(report.meshes, 1);
+        ModPackage::open(&out).expect("open generated").validate().expect("validate");
     }
 
     #[test]

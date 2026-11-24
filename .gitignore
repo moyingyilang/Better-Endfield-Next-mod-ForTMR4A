@@ -252,6 +252,4 @@ __pycache__/
 /termux/build.env
 /native/mod/target/
 /native/bem/target/
-# ForTMR4A: vendored Converter4BENeXt 的本地构建产物
-/third_party/Converter4BENeXt/build/
 /native/ir/target/
