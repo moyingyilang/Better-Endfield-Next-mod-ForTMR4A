@@ -228,6 +228,8 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   生成后用 `efml-core` 自校验；Android 可选开关 `BETTER_ENDFIELD_NEXT_IR_RUST`。
 - **切片 3.5 完成**：`native/pipeline` 统一入口 `be_source_to_mod`，
   BEM/EFMI/EFF3 三种来源一次调用产出 mod 目录；Android 开关 `BETTER_ENDFIELD_NEXT_PIPELINE`。
+- **导入链收尾**：Converter4BENeXt 已合入上游 `main` 并改为 submodule（`6fcd24f`）；
+  统一入口支持 BEM 原生 ZIP 容器；Android 侧新增 JNI `BemConverter`（javac + NDK 头语法检查通过，未设备验证）。
 
 ### 待办（P3 剩余）
 

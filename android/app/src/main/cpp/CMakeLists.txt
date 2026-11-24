@@ -269,5 +269,7 @@ if(BETTER_ENDFIELD_NEXT_PIPELINE)
     endif()
     add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/pipeline"
         "${CMAKE_CURRENT_BINARY_DIR}/be-pipeline")
+    target_sources(betterendfieldnext_android PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/mod_pipeline_jni.cpp")
     target_link_libraries(betterendfieldnext_android PRIVATE be_pipeline)
 endif()

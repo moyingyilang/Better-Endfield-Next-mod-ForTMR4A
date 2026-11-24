@@ -26,7 +26,7 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 |---|---|---|---|---|
 | 1 | **BEM 包读取/校验**（导入第一关） | Python `tools/CustomModel/bem_v*.py`（写入/校验参考） + C++ `native/modules/custom_model/bem.cpp` | **Rust 叶子** `native/bem` + C ABI `BemPackage.h` | ✅ 切片 1：容器/结构/payload 引用/长度自洽 + zstd 解压校验 |
 | 1b | **多格式源接入 + 实时转换**（BEM / EFMI / EFF3 / mod.toml） | Converter4BENeXt（C++17，submodule，pin `6fcd24f`）+ Python 工具链 | **C++ 宿主** `native/convert`（vendored converter，C ABI）+ C 探测/分发 | ✅ 切片 2：进程内转换，BEM 主线不变 |
-| 1c | **统一导入入口（编排）** | 无（此前要手动串转换器 + 工具） | **C 主链路** `native/pipeline`（`be_source_to_mod`） | ✅ 切片 3.5：一次调用完成源探测→转换→BEM→IR；含 BEM 原生 ZIP 容器 |
+| 1c | **统一导入入口（编排）** | 无（此前要手动串转换器 + 工具） | **C 主链路** `native/pipeline`（`be_source_to_mod`） | ✅ 切片 3.5：源探测→转换→BEM→IR；含 BEM ZIP；JNI `BemConverter`（未设备验证） |
 | 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | 🟡 切片 2 进行中：写入器/repack 完成（raw，读→写逐字节一致）；合成/材质/驱动器待做 |
 | 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ✅ 切片 3（本次）：`native/ir`，生成后用 efml-core 自校验 |
 | 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | ⏳ 切片 4 |

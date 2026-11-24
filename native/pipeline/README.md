@@ -46,3 +46,8 @@ cd native/pipeline
 
 `-DBETTER_ENDFIELD_NEXT_PIPELINE=ON` 会自动拉入 `native/convert` 与 `native/ir`
 （若已单独开启对应开关则复用），并把 `be_pipeline` 链进 `betterendfieldnext_android`。
+
+JNI 暴露：`BemConverter.convert(source, catalogDir, outDir)` →
+`be_source_to_mod`；返回 `null` 表示成功，否则是错误文本。Java 类在
+`android/app/src/main/java/dev/betterendfield/next/BemConverter.java`，
+native 实现在 `mod_pipeline_jni.cpp`（只在 PIPELINE 开启时编译）。
