@@ -16,9 +16,16 @@ use std::ffi::{c_char, CStr};
 use std::fs;
 use std::path::Path;
 
+use std::collections::{BTreeMap, BTreeSet};
+
+mod catalog;
+
+use catalog::Catalog;
+
 use efml_core::identify::Identify;
 use efml_core::ir::{
-    IndexFormat, MeshReplace, MeshSection, ModIr, SubMesh, TextureReplace, TextureSection,
+    BoneMap, IndexFormat, MaterialOverride, MaterialSection, MeshReplace, MeshSection, ModIr,
+    SkeletonMapping, SkeletonSection, SubMesh, TextureBinding, TextureReplace, TextureSection,
     VertexAttribute, VertexFormat, VertexLayout,
 };
 use efml_core::manifest::{Backend, ModManifest, ModTarget};
@@ -135,6 +142,8 @@ pub struct Options {
     pub game_version: Option<String>,
     pub abi: Option<String>,
     pub hot_reload: bool,
+    /// 可选 BEN catalog 目录（`tools/CustomModel/catalog`）；用于骨骼/材质/对象路径。
+    pub catalog_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for Options {
@@ -145,6 +154,7 @@ impl Default for Options {
             game_version: None,
             abi: Some("arm64-v8a".into()),
             hot_reload: true,
+            catalog_dir: None,
         }
     }
 }
@@ -179,6 +189,18 @@ pub enum Error {
 }
 
 /// 转换入口：BEM → mod 包目录。
+pub fn convert_bem_to_mod_with_catalog(
+    bem_path: impl AsRef<Path>,
+    out_dir: impl AsRef<Path>,
+    catalog_dir: impl AsRef<Path>,
+) -> Result<Report, Error> {
+    let options = Options {
+        catalog_dir: Some(catalog_dir.as_ref().to_path_buf()),
+        ..Options::default()
+    };
+    convert_bem_to_mod(bem_path, out_dir, &options)
+}
+
 pub fn convert_bem_to_mod(
     bem_path: impl AsRef<Path>,
     out_dir: impl AsRef<Path>,
@@ -208,6 +230,23 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
     }
     let mod_id = sanitize_id(package_id);
 
+    let character_id = manifest
+        .get("target")
+        .and_then(|target| target.get("character_id"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let catalog = match (&options.catalog_dir, character_id.is_empty()) {
+        (Some(dir), false) => match Catalog::load(dir, character_id) {
+            Ok(catalog) => Some(catalog),
+            Err(cause) => {
+                warnings.push(format!("catalog 加载失败，跳过骨骼/材质映射：{cause}"));
+                None
+            }
+        },
+        _ => None,
+    };
+    let catalog = catalog.as_ref();
+
     let meshes = manifest
         .get("meshes")
         .and_then(Value::as_array)
@@ -226,7 +265,7 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
     let mut submesh_count = 0usize;
 
     for (mesh_index, mesh) in meshes.iter().enumerate() {
-        let replaced = convert_mesh(bem, mesh, mesh_index, out_dir, options, &mut warnings)?;
+        let replaced = convert_mesh(bem, mesh, mesh_index, out_dir, options, catalog, &mut warnings)?;
         vertex_bytes += replaced.vertex_bytes;
         index_bytes += replaced.index_bytes;
         submesh_count += replaced.submeshes;
@@ -260,8 +299,13 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
         });
     }
 
+    let skeleton = build_skeleton(catalog, meshes);
+    let material = build_materials(catalog, meshes, manifest, &mut warnings);
+
     let manifest_ir = ModIr {
         mesh: MeshSection { replace: mesh_replace },
+        skeleton,
+        material,
         texture: TextureSection { replace: texture_replace },
         ..ModIr::default()
     };
@@ -311,8 +355,14 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
         .map(|items| items.len())
         .sum();
     toml_text.push_str(&format!("bones = {bones}\n"));
+    if let Some(catalog) = catalog {
+        toml_text.push_str(&format!(
+            "catalog = {}\n",
+            toml_string(&catalog.character_id)
+        ));
+    }
     toml_text.push_str(
-        "note = \"skeleton bindposes / material overrides / blendshapes are not converted yet\"\n",
+        "note = \"bindposes / blendshapes / dynamic drivers are not converted yet\"\n",
     );
     fs::write(out_dir.join("mod.toml"), &toml_text)?;
 
@@ -361,6 +411,7 @@ fn convert_mesh(
     mesh_index: usize,
     out_dir: &Path,
     options: &Options,
+    catalog: Option<&Catalog>,
     warnings: &mut Vec<String>,
 ) -> Result<ConvertedMesh, Error> {
     let vertex_count = u64_field(mesh, "vertex_count", "meshes")?;
@@ -494,13 +545,26 @@ fn convert_mesh(
         warnings.push(format!("meshes[{mesh_index}] 没有索引数据，已跳过子网格"));
     }
 
-    let identify = Identify::VertexSignature {
-        stride: merged_stride as u32,
-        attributes: vertex_layout
-            .attributes
-            .iter()
-            .map(|attr| attr.semantic.clone())
-            .collect(),
+    // 有 catalog 时优先用 Unity 对象路径（IL2CPP 后端的精确识别），否则退回顶点签名。
+    let component_id = mesh
+        .get("bones")
+        .and_then(Value::as_array)
+        .and_then(|bones| bones.first())
+        .and_then(|bone| bone.get("component"))
+        .and_then(Value::as_u64);
+    let catalog_path = component_id
+        .and_then(|id| catalog.and_then(|catalog| catalog.component(id as u32)))
+        .and_then(|component| component.path.clone());
+    let identify = match catalog_path {
+        Some(path) => Identify::UnityPath { path },
+        None => Identify::VertexSignature {
+            stride: merged_stride as u32,
+            attributes: vertex_layout
+                .attributes
+                .iter()
+                .map(|attr| attr.semantic.clone())
+                .collect(),
+        },
     };
 
     Ok(ConvertedMesh {
@@ -549,6 +613,156 @@ fn toml_string(value: &str) -> String {
     format!("{:?}", value)
 }
 
+
+
+fn build_skeleton(catalog: Option<&Catalog>, meshes: &[Value]) -> SkeletonSection {
+    let Some(catalog) = catalog else {
+        return SkeletonSection::default();
+    };
+    let mut seen = BTreeSet::new();
+    let mut map = Vec::new();
+    let mut root: Option<String> = None;
+    for mesh in meshes {
+        let Some(bones) = mesh.get("bones").and_then(Value::as_array) else {
+            continue;
+        };
+        for bone in bones {
+            let Some(component) = bone.get("component").and_then(Value::as_u64) else {
+                continue;
+            };
+            let Some(index) = bone.get("index").and_then(Value::as_u64) else {
+                continue;
+            };
+            if !seen.insert((component, index)) {
+                continue;
+            }
+            let catalog_component = catalog.component(component as u32);
+            let name = catalog_component
+                .and_then(|value| value.bones.get(index as usize).cloned())
+                .or_else(|| bone.get("name").and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_else(|| format!("bone_{component}_{index}"));
+            if root.is_none() {
+                if let Some(path) = catalog_component.and_then(|value| value.path.clone()) {
+                    root = Some(path.split('/').next().unwrap_or(&path).to_string());
+                }
+            }
+            map.push(BoneMap {
+                slot: map.len() as u32,
+                name,
+            });
+        }
+    }
+    let Some(root) = root else {
+        return SkeletonSection::default();
+    };
+    SkeletonSection {
+        map: vec![SkeletonMapping {
+            identify: Identify::UnityPath { path: root },
+            bone_count: map.len() as u32,
+            map,
+            bindposes: None,
+        }],
+    }
+}
+
+fn build_materials(
+    catalog: Option<&Catalog>,
+    meshes: &[Value],
+    manifest: &Value,
+    warnings: &mut Vec<String>,
+) -> MaterialSection {
+    let Some(catalog) = catalog else {
+        return MaterialSection::default();
+    };
+    let texture_names: Vec<String> = manifest
+        .get("textures")
+        .and_then(Value::as_array)
+        .map(|textures| {
+            textures
+                .iter()
+                .map(|texture| {
+                    texture
+                        .get("original_name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string()
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut overrides: BTreeMap<(u32, u32), (String, BTreeMap<String, String>)> = BTreeMap::new();
+    for mesh in meshes {
+        let Some(draws) = mesh.get("draws").and_then(Value::as_array) else {
+            continue;
+        };
+        for draw in draws {
+            let Some(component) = draw.get("material_component").and_then(Value::as_u64) else {
+                continue;
+            };
+            let slot = draw.get("material_slot").and_then(Value::as_u64).unwrap_or(0);
+            let catalog_component = catalog.component(component as u32);
+            let material_name = catalog_component
+                .and_then(|value| value.materials.get(slot as usize).cloned())
+                .or_else(|| draw.get("material_name").and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_else(|| format!("material_{component}_{slot}"));
+            let properties = catalog_component
+                .and_then(|value| value.texture_properties.get(slot as usize));
+
+            let mut bindings = BTreeMap::new();
+            if let Some(textures) = draw.get("textures").and_then(Value::as_array) {
+                for texture in textures {
+                    let Some(index) = texture.as_u64() else {
+                        continue;
+                    };
+                    let Some(source_name) = texture_names.get(index as usize) else {
+                        continue;
+                    };
+                    let slot_name = properties
+                        .and_then(|properties| {
+                            properties
+                                .iter()
+                                .find(|property| property.name.eq_ignore_ascii_case(source_name))
+                        })
+                        .map(|property| property.property.clone());
+                    let slot_name = match slot_name {
+                        Some(slot_name) => slot_name,
+                        None => {
+                            warnings.push(format!(
+                                "材质 {material_name} 的贴图 {source_name} 在 catalog 中没有属性名，使用 _Tex{index}"
+                            ));
+                            format!("_Tex{index}")
+                        }
+                    };
+                    bindings.insert(slot_name, format!("texture/{index}.bin"));
+                }
+            }
+            overrides
+                .entry((component as u32, slot as u32))
+                .or_insert_with(|| (material_name.clone(), BTreeMap::new()))
+                .1
+                .extend(bindings);
+        }
+    }
+
+    MaterialSection {
+        overrides: overrides
+            .into_values()
+            // 没有贴图绑定也没有 shader 的覆盖不产生任何效果，跳过，避免空条目。
+            .filter(|(_, bindings)| !bindings.is_empty())
+            .map(|(material_name, bindings)| MaterialOverride {
+                identify: Identify::AssetPath {
+                    path: material_name,
+                },
+                shader: None,
+                textures: bindings
+                    .into_iter()
+                    .map(|(slot, source)| TextureBinding { slot, source })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
 
 // ------------------------------------------------------------------ BEM ZIP 容器（规范 §14）
 
@@ -689,6 +903,19 @@ fn read_bem_zip(zip_path: &Path) -> Result<(String, Vec<Vec<u8>>, u16), Error> {
     Ok((manifest, ordered, minor))
 }
 
+/// BEM 原生 ZIP 容器 → mod 目录（带 catalog）。
+pub fn convert_bem_zip_to_mod_with_catalog(
+    zip_path: impl AsRef<Path>,
+    out_dir: impl AsRef<Path>,
+    catalog_dir: impl AsRef<Path>,
+) -> Result<Report, Error> {
+    let options = Options {
+        catalog_dir: Some(catalog_dir.as_ref().to_path_buf()),
+        ..Options::default()
+    };
+    convert_bem_zip_to_mod(zip_path, out_dir, &options)
+}
+
 /// BEM 原生 ZIP 容器 → mod 目录。
 pub fn convert_bem_zip_to_mod(
     zip_path: impl AsRef<Path>,
@@ -773,6 +1000,78 @@ pub unsafe extern "C" fn be_ir_convert_bem_zip(
         }
     };
     match convert_bem_zip_to_mod(src, dst, &Options::default()) {
+        Ok(_) => BE_IR_OK,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            BE_IR_INVALID
+        }
+    }
+}
+
+/// 同 [`be_ir_convert_bem`]，但额外用 BEN catalog 补骨骼/材质映射。
+///
+/// # Safety
+/// 参数规则同 [`be_ir_convert_bem`]。
+#[no_mangle]
+pub unsafe extern "C" fn be_ir_convert_bem_with_catalog(
+    bem_path: *const c_char,
+    catalog_dir: *const c_char,
+    out_dir: *const c_char,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if bem_path.is_null() || catalog_dir.is_null() || out_dir.is_null() {
+        write_buf(err, err_cap, "bem_path/catalog_dir/out_dir is null");
+        return BE_IR_BAD_ARG;
+    }
+    let (src, catalog, dst) = match (
+        CStr::from_ptr(bem_path).to_str(),
+        CStr::from_ptr(catalog_dir).to_str(),
+        CStr::from_ptr(out_dir).to_str(),
+    ) {
+        (Ok(src), Ok(catalog), Ok(dst)) => (src, catalog, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_IR_BAD_ARG;
+        }
+    };
+    match convert_bem_to_mod_with_catalog(src, dst, catalog) {
+        Ok(_) => BE_IR_OK,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            BE_IR_INVALID
+        }
+    }
+}
+
+/// BEM ZIP + catalog 版本。
+///
+/// # Safety
+/// 同 [`be_ir_convert_bem_with_catalog`]。
+#[no_mangle]
+pub unsafe extern "C" fn be_ir_convert_bem_zip_with_catalog(
+    zip_path: *const c_char,
+    catalog_dir: *const c_char,
+    out_dir: *const c_char,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if zip_path.is_null() || catalog_dir.is_null() || out_dir.is_null() {
+        write_buf(err, err_cap, "zip_path/catalog_dir/out_dir is null");
+        return BE_IR_BAD_ARG;
+    }
+    let (src, catalog, dst) = match (
+        CStr::from_ptr(zip_path).to_str(),
+        CStr::from_ptr(catalog_dir).to_str(),
+        CStr::from_ptr(out_dir).to_str(),
+    ) {
+        (Ok(src), Ok(catalog), Ok(dst)) => (src, catalog, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_IR_BAD_ARG;
+        }
+    };
+    match convert_bem_zip_to_mod_with_catalog(src, dst, catalog) {
         Ok(_) => BE_IR_OK,
         Err(cause) => {
             write_buf(err, err_cap, &cause.to_string());

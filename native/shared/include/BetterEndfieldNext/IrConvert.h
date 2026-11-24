@@ -27,6 +27,12 @@ int32_t be_ir_convert_bem(const char *bem_path, const char *out_dir,
 int32_t be_ir_convert_bem_zip(const char *zip_path, const char *out_dir,
                               char *err, uint32_t err_cap);
 
+/* 同上，但用 BEN catalog 补 skeleton.map / material.override。 */
+int32_t be_ir_convert_bem_with_catalog(const char *bem_path, const char *catalog_dir,
+                                       const char *out_dir, char *err, uint32_t err_cap);
+int32_t be_ir_convert_bem_zip_with_catalog(const char *zip_path, const char *catalog_dir,
+                                           const char *out_dir, char *err, uint32_t err_cap);
+
 #ifdef __cplusplus
 }
 #endif

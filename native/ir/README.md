@@ -14,8 +14,18 @@ BEM 不淘汰：本 crate 只做“BEM → IR”的单向转换，BEM 读取/写
 | `textures[]`（payload + original_name + format + srgb） | `[[texture.replace]]`，`identify = { kind = "asset-path", path = original_name }` |
 | `appearances` / `bones` / 能力 / BEM 版本 | `[ext.ben.*]`（`efml-core` 忽略未知字段） |
 
-**未映射**：骨骼 bindpose、材质槽名与关键字覆盖、形态键（BEM 1.3 形变参数）、
-1.5 驱动器、1.4 多资源目标。这些需要游戏 catalog 知识，留给后续切片。
+## catalog 补全（`--catalog`）
+
+传入 BEN catalog 目录（`tools/CustomModel/catalog`，按 `character_id` 字段匹配文件）后：
+
+| 产出 | 依据 | 说明 |
+|---|---|---|
+| `[[skeleton.map]]` | 部件 `bone_names` + 网格 `bones` | 按出现顺序去重合并骨骼槽；`identify = unity-path`（catalog 对象路径首段，如 `chr_0016_laevat_uimodel`） |
+| 网格 `identify` | `evidence.observations.*.path` | 优先 Unity 对象路径；无 catalog 时退回 `vertex-signature` |
+| `[[material.override]]` | `materials` + `material_texture_properties` | 每个材质槽的贴图 → IR `slot`（`_BaseMap` 等）+ `texture/N.bin`；无绑定的空覆盖跳过 |
+
+**仍未映射**：骨骼 bindpose、shader 名与关键字覆盖、形态键、1.5 驱动器、1.4 多资源目标。
+材质 `identify` 目前用 donor 材质名（`asset-path`），skeleton 根路径是 catalog 对象路径首段的启发式。
 
 ## BEM 原生 ZIP 容器
 

@@ -230,6 +230,9 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   BEM/EFMI/EFF3 三种来源一次调用产出 mod 目录；Android 开关 `BETTER_ENDFIELD_NEXT_PIPELINE`。
 - **导入链收尾**：Converter4BENeXt 已合入上游 `main` 并改为 submodule（`6fcd24f`）；
   统一入口支持 BEM 原生 ZIP 容器；Android 侧新增 JNI `BemConverter`（javac + NDK 头语法检查通过，未设备验证）。
+- **切片 2 语义补全**：传入 BEN catalog 时自动生成 `[[skeleton.map]]` 与 `[[material.override]]`
+  （EFF `lvtsfw`：skeleton 1 / material 2；EFMI `edmin_maid`：skeleton 1 / material 7）；
+  仍缺 bindpose、shader/关键字、形态键与驱动器。
 
 ### 待办（P3 剩余）
 

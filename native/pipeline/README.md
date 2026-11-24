@@ -29,6 +29,8 @@ int be_source_to_mod(const char *src, const char *catalog_dir,
 
 返回：`0` 成功 / `1` 失败 / `2` 参数错误 / `3` 不支持（例如来源已是 `mod.toml`）。
 
+- `catalog_dir` 对 BEM / ZIP 来源同样生效：BEM 内已有目标角色，catalog 用于补
+  `skeleton.map` 与 `material.override`；EFMI/EFF 转换后也会转发同一个 catalog；
 - BEM 原生 ZIP 容器（`manifest.json` + `payloads/NNNN.bin`，可被单一顶层目录包裹）由 `be-ir`
   内部解包，再走同一条 IR 链；
 - 普通 mod ZIP（EFMI/EFF 压缩包）暂不支持：先解包成目录再传。

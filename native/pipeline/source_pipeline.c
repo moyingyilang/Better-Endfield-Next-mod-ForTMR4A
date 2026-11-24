@@ -73,7 +73,10 @@ int be_source_to_mod(const char* src, const char* catalog_dir,
     /* BEM 原生 ZIP 容器：be-ir 内部解包成 BEM 再进 IR 链。 */
     if (kind == BE_SRC_ZIP) {
         char detail[512] = {0};
-        int zip_rc = be_ir_convert_bem_zip(src, out_mod_dir, detail, (unsigned)sizeof detail);
+        int zip_rc = catalog_dir && *catalog_dir
+                         ? be_ir_convert_bem_zip_with_catalog(
+                               src, catalog_dir, out_mod_dir, detail, (unsigned)sizeof detail)
+                         : be_ir_convert_bem_zip(src, out_mod_dir, detail, (unsigned)sizeof detail);
         if (zip_rc != BE_IR_OK) {
             append(err, err_cap,
                    "ZIP 不是 BEM 原生容器（manifest.json + payloads/NNNN.bin）：", detail);
@@ -85,7 +88,10 @@ int be_source_to_mod(const char* src, const char* catalog_dir,
     /* BEM 直接进 IR 链。 */
     if (kind == BE_SRC_BEM) {
         char detail[512] = {0};
-        int rc = be_ir_convert_bem(src, out_mod_dir, detail, (unsigned)sizeof detail);
+        int rc = catalog_dir && *catalog_dir
+                     ? be_ir_convert_bem_with_catalog(
+                           src, catalog_dir, out_mod_dir, detail, (unsigned)sizeof detail)
+                     : be_ir_convert_bem(src, out_mod_dir, detail, (unsigned)sizeof detail);
         if (rc != BE_IR_OK) {
             append(err, err_cap, "BEM→IR 失败：", detail);
             return BE_PIPELINE_ERR;
@@ -114,7 +120,10 @@ int be_source_to_mod(const char* src, const char* catalog_dir,
     }
 
     memset(detail, 0, sizeof detail);
-    int rc = be_ir_convert_bem(tmp, out_mod_dir, detail, (unsigned)sizeof detail);
+    int rc = catalog_dir && *catalog_dir
+                 ? be_ir_convert_bem_with_catalog(
+                       tmp, catalog_dir, out_mod_dir, detail, (unsigned)sizeof detail)
+                 : be_ir_convert_bem(tmp, out_mod_dir, detail, (unsigned)sizeof detail);
     unlink(tmp);
     if (rc != BE_IR_OK) {
         append(err, err_cap, "BEM→IR 失败：", detail);
