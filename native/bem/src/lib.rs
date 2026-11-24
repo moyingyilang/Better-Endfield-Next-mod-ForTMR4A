@@ -673,7 +673,123 @@ pub fn write_bem_raw(minor: u16, manifest: &[u8], payloads: &[Vec<u8>]) -> Resul
     Ok(out)
 }
 
+/// 写入选项：默认 raw；`compress` 时按“压缩有收益才用 zstd”的规范写 codec=1。
+#[derive(Debug, Clone, Copy)]
+pub struct WriteOptions {
+    pub minor: u16,
+    pub compress: bool,
+    pub level: i32,
+}
+
+impl Default for WriteOptions {
+    fn default() -> Self {
+        Self {
+            minor: 0,
+            compress: false,
+            level: 3,
+        }
+    }
+}
+
+/// 自动选择 raw / zstd（压缩后不更小就写 raw，符合规范“压缩无收益时写 raw”）。
+pub fn write_bem(
+    options: WriteOptions,
+    manifest: &[u8],
+    payloads: &[Vec<u8>],
+) -> Result<Vec<u8>, Error> {
+    if !options.compress {
+        return write_bem_raw(options.minor, manifest, payloads);
+    }
+    let mut encoded: Vec<(u32, Vec<u8>, u64)> = Vec::with_capacity(payloads.len());
+    for (index, payload) in payloads.iter().enumerate() {
+        if payload.is_empty() || payload.len() as u64 > MAX_PAYLOAD_SIZE {
+            return Err(Error::Write(format!(
+                "payload {index} 长度必须在 1 字节..512 MiB"
+            )));
+        }
+        let compressed = zstd::bulk::compress(payload, options.level)
+            .map_err(|e| Error::Write(format!("zstd 压缩失败：{e}")))?;
+        if compressed.len() < payload.len() {
+            encoded.push((1, compressed, payload.len() as u64));
+        } else {
+            encoded.push((0, payload.clone(), payload.len() as u64));
+        }
+    }
+    write_bem_with_codecs(options.minor, manifest, &encoded)
+}
+
+/// 底层：payload 已按 codec 编码（0 raw / 1 zstd），只做容器拼装与校验。
+pub fn write_bem_with_codecs(
+    minor: u16,
+    manifest: &[u8],
+    payloads: &[(u32, Vec<u8>, u64)],
+) -> Result<Vec<u8>, Error> {
+    if minor > 5 {
+        return Err(Error::Version(1, minor));
+    }
+    if manifest.is_empty() || manifest.len() as u64 > MAX_MANIFEST_SIZE {
+        return Err(Error::Write("manifest 长度必须在 1 字节..4 MiB".into()));
+    }
+    let value: Value =
+        serde_json::from_slice(manifest).map_err(|e| Error::Write(format!("manifest JSON 非法：{e}")))?;
+    depth_check(&value, 1)?;
+    if payloads.len() > MAX_ARRAY {
+        return Err(Error::Write(format!("payload 数 {} 超过 {MAX_ARRAY}", payloads.len())));
+    }
+    let dir_end = HEADER_SIZE + manifest.len() as u64 + payloads.len() as u64 * 32;
+    let mut metas = Vec::with_capacity(payloads.len());
+    let mut cursor = dir_end;
+    for (index, (codec, stored, decoded)) in payloads.iter().enumerate() {
+        if *codec > 1 {
+            return Err(Error::Write(format!("payload {index} codec={codec}")));
+        }
+        if stored.is_empty() || stored.len() as u64 > MAX_PAYLOAD_SIZE || *decoded > MAX_PAYLOAD_SIZE {
+            return Err(Error::Write(format!("payload {index} 长度非法")));
+        }
+        if *codec == 0 && stored.len() as u64 != *decoded {
+            return Err(Error::Write(format!(
+                "payload {index} codec=raw 但长度不一致"
+            )));
+        }
+        metas.push((*codec, cursor, stored.len() as u64, *decoded));
+        cursor += stored.len() as u64;
+    }
+    if cursor > MAX_FILE_SIZE {
+        return Err(Error::Write("输出超过 2 GiB".into()));
+    }
+    let mut out = Vec::with_capacity(cursor as usize);
+    out.extend_from_slice(&MAGIC);
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&minor.to_le_bytes());
+    out.extend_from_slice(&(HEADER_SIZE as u32).to_le_bytes());
+    out.extend_from_slice(&cursor.to_le_bytes());
+    out.extend_from_slice(&(manifest.len() as u64).to_le_bytes());
+    out.extend_from_slice(&(payloads.len() as u32).to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(manifest);
+    for (codec, offset, stored, decoded) in &metas {
+        out.extend_from_slice(&codec.to_le_bytes());
+        out.extend_from_slice(&0u32.to_le_bytes());
+        out.extend_from_slice(&offset.to_le_bytes());
+        out.extend_from_slice(&stored.to_le_bytes());
+        out.extend_from_slice(&decoded.to_le_bytes());
+    }
+    for (_, stored, _) in payloads {
+        out.extend_from_slice(stored);
+    }
+    Ok(out)
+}
+
 impl BemPackage {
+    /// 读→写：保留 manifest，把所有 Payload 解出来后按指定选项重新封装。
+    pub fn repack(&self, options: WriteOptions) -> Result<Vec<u8>, Error> {
+        let mut payloads = Vec::with_capacity(self.payloads.len());
+        for id in 0..self.payloads.len() as u32 {
+            payloads.push(self.read_payload(id)?);
+        }
+        write_bem(options, &self.manifest_bytes, &payloads)
+    }
+
     /// 读→写：保留 manifest，把所有 Payload 解出来后用 raw 重新封装。
     pub fn repack_raw(&self) -> Result<Vec<u8>, Error> {
         let mut payloads = Vec::with_capacity(self.payloads.len());
@@ -772,6 +888,56 @@ pub unsafe extern "C" fn be_bem_repack(
         }
     };
     let bytes = match package.repack_raw() {
+        Ok(bytes) => bytes,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            return cause.code().max(BE_BEM_INVALID);
+        }
+    };
+    if let Err(cause) = std::fs::write(dst, &bytes) {
+        write_buf(err, err_cap, &format!("写入失败：{cause}"));
+        return BE_BEM_BAD_ARG;
+    }
+    BE_BEM_OK
+}
+
+/// 读入 BEM 再重写；`compress != 0` 时按“有收益才用 zstd”写 codec。
+///
+/// # Safety
+/// 同 [`be_bem_repack`]。
+#[no_mangle]
+pub unsafe extern "C" fn be_bem_repack_ex(
+    input: *const c_char,
+    output: *const c_char,
+    compress: i32,
+    level: i32,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if input.is_null() || output.is_null() {
+        write_buf(err, err_cap, "input/output is null");
+        return BE_BEM_BAD_ARG;
+    }
+    let (src, dst) = match (CStr::from_ptr(input).to_str(), CStr::from_ptr(output).to_str()) {
+        (Ok(src), Ok(dst)) => (src, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_BEM_BAD_ARG;
+        }
+    };
+    let package = match BemPackage::open(src) {
+        Ok(package) => package,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            return cause.code().max(BE_BEM_INVALID);
+        }
+    };
+    let options = WriteOptions {
+        minor: package.minor,
+        compress: compress != 0,
+        level: if level <= 0 { 3 } else { level },
+    };
+    let bytes = match package.repack(options) {
         Ok(bytes) => bytes,
         Err(cause) => {
             write_buf(err, err_cap, &cause.to_string());
@@ -888,6 +1054,25 @@ mod tests {
         let package = BemPackage::from_bytes(bytes).expect("reopen");
         assert_eq!(package.minor, 3);
         assert_eq!(package.read_payload(0).expect("payload"), vec![9, 8, 7]);
+        package.validate().expect("validate");
+    }
+
+    #[test]
+    fn zstd_writer_round_trips_and_compresses() {
+        let payload = vec![7u8; 4096];
+        let bytes = write_bem(
+            WriteOptions {
+                minor: 0,
+                compress: true,
+                level: 3,
+            },
+            MINIMAL.as_bytes(),
+            &[payload.clone()],
+        )
+        .expect("write zstd");
+        let package = BemPackage::from_bytes(bytes).expect("reopen");
+        assert_eq!(package.payloads[0].codec, 1, "可压缩数据应使用 zstd");
+        assert_eq!(package.read_payload(0).expect("payload"), payload);
         package.validate().expect("validate");
     }
 

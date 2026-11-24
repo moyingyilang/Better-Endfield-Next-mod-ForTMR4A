@@ -19,8 +19,10 @@ BEM 包进入设备的**第一条业务链**：容器解析 → manifest 结构�
 
 - `write_bem_raw(minor, manifest, payloads)`：以 raw（codec=0）重写容器，包含全套头部/目录/边界校验；
 - `BemPackage::repack_raw()`：读→写；保留 manifest 字节，payload 解出来后按 raw 重新封装；
-- C ABI：`be_bem_repack(input, output, err, cap)`；
-- CLI：`be-bem repack <in> <out>`、`be-bem pack <manifest.json> <payload-dir> <out> [--minor N]`。
+- C ABI：`be_bem_repack`（raw）、`be_bem_repack_ex`（`compress`/`level`）；
+- CLI：`be-bem repack <in> <out> [--zstd] [--level N]`、
+  `be-bem pack <manifest.json> <payload-dir> <out> [--minor N] [--zstd]`；
+- zstd 按规范“压缩有收益才用”：压缩后不小于原文就写 raw；实测 26.9 MB 包 repack 后 14.3 MB。
 
 实测：对 26 MB 的 EFF 转换产物 repack 后与输入**逐字节一致**，且通过 `validate`。
 zstd 压缩（codec=1）留给后续切片（`ruzstd` 只解码）。

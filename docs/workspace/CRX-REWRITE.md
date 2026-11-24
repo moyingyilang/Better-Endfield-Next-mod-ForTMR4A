@@ -29,7 +29,7 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 | 1c | **统一导入入口（编排）** | 无（此前要手动串转换器 + 工具） | **C 主链路** `native/pipeline`（`be_source_to_mod`） | ✅ 切片 3.5：源探测→转换→BEM→IR；含 BEM ZIP；JNI `BemConverter`（未设备验证） |
 | 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | 🟡 写入器/repack 完成；**catalog 驱动的 skeleton/material 映射已补**（无 bindpose/shader/驱动器） |
 | 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ✅ 切片 3（本次）：`native/ir`，生成后用 efml-core 自校验 |
-| 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | ⏳ 切片 4 |
+| 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | 🟡 BEM payload zstd **写入**完成（读早已支持）；ASTC/BCn 仍走原有 C 库 |
 | 5 | 安装/更新/回退状态机 | Java `BemInstaller` / `MmdInstaller` + Python 生成脚本 | **C 主链路** + Java 只做 UI/框架调用 | ⏳ 切片 5 |
 | 6 | 模块配置分发与解析 | Java `ModuleConfigurations` → C++ 模块文本解析 | C 主链路（统一配置格式）+ C++ 宿主 | ⏳ 切片 6 |
 | 7 | 运行时功能（相机/语音/动作/UI/媒体屏） | C++ 模块（多平台共用 TU） | 保留 **C++ 宿主**；可移植算法抽 C/Rust 叶子 | ⏳ 切片 7（以抽离为主，不重写 UI 逻辑） |
@@ -125,7 +125,7 @@ ZIP 容器（§14）、JSON 重复键检测、流式读取（当前整文件读�
 | 指标 | 当前 |
 |---|---|
 | 业务链中的 Python 实现 | `tools/CustomModel` 89 文件 / 约 2.4 万行（BEM 相关），`scripts/` 生成器 |
-| 已迁到 CRX 的业务段 | 5.5 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR、统一入口、BEM/普通 ZIP、骨骼/材质映射） |
+| 已迁到 CRX 的业务段 | 5.75 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR、统一入口、BEM/普通 ZIP、骨骼/材质映射） |
 | 新增 Rust 叶子 | `native/mod`（mod.toml/IR 校验）、`native/bem`（BEM 读取/校验） |
 | 新增 C 主链路 | `efml4a_source`（资源源抽象，消费 ForTMR2 `lib/`） |
 | 新增 C++ 宿主适配 | `native/convert`（源探测/分发，C ABI 出边界） |

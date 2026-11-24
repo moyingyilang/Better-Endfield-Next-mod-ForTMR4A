@@ -33,6 +33,10 @@ int64_t be_bem_info_json(const char *path, char *out, uint32_t out_cap);
 /* 读入 input.bem 并以 raw payload 重写到 output.bem（读→改→写最小入口）。 */
 int32_t be_bem_repack(const char *input, const char *output, char *err, uint32_t err_cap);
 
+/* 同上；compress!=0 时按“有收益才用 zstd”写 codec=1，level<=0 用默认 3。 */
+int32_t be_bem_repack_ex(const char *input, const char *output, int32_t compress,
+                         int32_t level, char *err, uint32_t err_cap);
+
 #ifdef __cplusplus
 }
 #endif
