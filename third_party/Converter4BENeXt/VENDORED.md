@@ -14,11 +14,16 @@
      原实现在无顶点色时声明 stride=8、且不声明 color 属性，违反 BEM 规范的长度自洽；
      现固定声明 24 与 color 属性（该修复应回推上游）。
 
-## 为什么 vendored 而不是 submodule
+## 上游状态
 
-C ABI 需要上游改动；在跨仓推送/固定 commit 之前，vendored 才能保证本仓可独立构建。
-上游一旦提供稳定库接口，改为 submodule 并删除本目录（见
-`docs/workspace/CRX-REWRITE.md` 的迁移方式）。
+C ABI 与 EFF stride 修复已经推送到上游分支：
+
+- 分支：`agent/crx-lib-api`
+- commit：`6fcd24f39897a3916f13a7d6a2f17513c5c79999`
+- PR：https://github.com/moyingyilang/Converter4BENeXt/pull/new/agent/crx-lib-api
+
+在该分支合入 `main` 之前，本仓保留 vendored 副本以保证可独立构建；
+合入后改为 submodule 并删除本目录（见 `docs/workspace/CRX-REWRITE.md`）。
 
 ## 同步
 

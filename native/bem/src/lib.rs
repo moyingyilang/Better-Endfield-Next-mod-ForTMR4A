@@ -68,14 +68,21 @@ pub enum Error {
     Manifest(String),
     #[error("校验失败：{0}")]
     Validate(String),
+    #[error("写入失败：{0}")]
+    Write(String),
 }
 
 impl Error {
     /// 映射到 C ABI 错误码：0 成功，1 包内容不合法，2 参数/IO，3 版本不支持。
     pub fn code(&self) -> i32 {
         match self {
-            Error::Magic | Error::Header(_) | Error::PayloadDir(_) | Error::Payload(..)
-            | Error::Manifest(_) | Error::Validate(_) => 1,
+            Error::Magic
+            | Error::Header(_)
+            | Error::PayloadDir(_)
+            | Error::Payload(..)
+            | Error::Manifest(_)
+            | Error::Validate(_)
+            | Error::Write(_) => 1,
             Error::Io(_) => 2,
             Error::Version(..) => 3,
         }
@@ -97,6 +104,7 @@ pub struct BemPackage {
     pub minor: u16,
     pub manifest: Value,
     pub payloads: Vec<PayloadMeta>,
+    manifest_bytes: Vec<u8>,
     data: Vec<u8>,
 }
 
@@ -243,6 +251,7 @@ impl BemPackage {
         Ok(Self {
             minor,
             manifest,
+            manifest_bytes: data[HEADER_SIZE as usize..manifest_end].to_vec(),
             payloads,
             data,
         })
@@ -601,6 +610,84 @@ impl fmt::Display for PayloadMeta {
     }
 }
 
+
+// ------------------------------------------------------------------ writer
+
+/// 以 raw（codec=0）Payload 写回 BEM 容器。
+///
+/// 为什么先只做 raw：转换器当前也写 raw；raw 不依赖压缩器，跨平台最稳。
+/// zstd 压缩留给后续切片（`ruzstd` 只解码，不编码）。
+pub fn write_bem_raw(minor: u16, manifest: &[u8], payloads: &[Vec<u8>]) -> Result<Vec<u8>, Error> {
+    if minor > 5 {
+        return Err(Error::Version(1, minor));
+    }
+    if manifest.is_empty() || manifest.len() as u64 > MAX_MANIFEST_SIZE {
+        return Err(Error::Write("manifest 长度必须在 1 字节..4 MiB".into()));
+    }
+    let value: Value =
+        serde_json::from_slice(manifest).map_err(|e| Error::Write(format!("manifest JSON 非法：{e}")))?;
+    depth_check(&value, 1)?;
+    if payloads.len() > MAX_ARRAY {
+        return Err(Error::Write(format!(
+            "payload 数 {} 超过 {MAX_ARRAY}",
+            payloads.len()
+        )));
+    }
+
+    let dir_end = HEADER_SIZE + manifest.len() as u64 + payloads.len() as u64 * 32;
+    let mut metas = Vec::with_capacity(payloads.len());
+    let mut cursor = dir_end;
+    for (index, payload) in payloads.iter().enumerate() {
+        if payload.is_empty() || payload.len() as u64 > MAX_PAYLOAD_SIZE {
+            return Err(Error::Write(format!(
+                "payload {index} 长度必须在 1 字节..512 MiB"
+            )));
+        }
+        metas.push((cursor, payload.len() as u64));
+        cursor += payload.len() as u64;
+    }
+    if cursor > MAX_FILE_SIZE {
+        return Err(Error::Write("输出超过 2 GiB".into()));
+    }
+
+    let mut out = Vec::with_capacity(cursor as usize);
+    out.extend_from_slice(&MAGIC);
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&minor.to_le_bytes());
+    out.extend_from_slice(&(HEADER_SIZE as u32).to_le_bytes());
+    out.extend_from_slice(&cursor.to_le_bytes());
+    out.extend_from_slice(&(manifest.len() as u64).to_le_bytes());
+    out.extend_from_slice(&(payloads.len() as u32).to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(manifest);
+    for (offset, size) in &metas {
+        out.extend_from_slice(&0u32.to_le_bytes()); // codec raw
+        out.extend_from_slice(&0u32.to_le_bytes()); // reserved
+        out.extend_from_slice(&offset.to_le_bytes());
+        out.extend_from_slice(&size.to_le_bytes());
+        out.extend_from_slice(&size.to_le_bytes());
+    }
+    for payload in payloads {
+        out.extend_from_slice(payload);
+    }
+    Ok(out)
+}
+
+impl BemPackage {
+    /// 读→写：保留 manifest，把所有 Payload 解出来后用 raw 重新封装。
+    pub fn repack_raw(&self) -> Result<Vec<u8>, Error> {
+        let mut payloads = Vec::with_capacity(self.payloads.len());
+        for id in 0..self.payloads.len() as u32 {
+            payloads.push(self.read_payload(id)?);
+        }
+        write_bem_raw(self.minor, &self.manifest_bytes, &payloads)
+    }
+
+    pub fn manifest_bytes(&self) -> &[u8] {
+        &self.manifest_bytes
+    }
+}
+
 // ------------------------------------------------------------------ C ABI
 
 use std::ffi::{c_char, CStr};
@@ -653,6 +740,49 @@ pub unsafe extern "C" fn be_bem_validate(path: *const c_char, err: *mut c_char, 
             cause.code().max(BE_BEM_INVALID)
         }
     }
+}
+
+/// 读入 BEM 并以 raw payload 重写到 `output`（读→改→写链路的最小入口）。
+///
+/// # Safety
+/// `input` / `output` 必须是 NUL 结尾 UTF-8 C 字符串；`err` 规则同 `be_bem_validate`。
+#[no_mangle]
+pub unsafe extern "C" fn be_bem_repack(
+    input: *const c_char,
+    output: *const c_char,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if input.is_null() || output.is_null() {
+        write_buf(err, err_cap, "input/output is null");
+        return BE_BEM_BAD_ARG;
+    }
+    let (src, dst) = match (CStr::from_ptr(input).to_str(), CStr::from_ptr(output).to_str()) {
+        (Ok(src), Ok(dst)) => (src, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_BEM_BAD_ARG;
+        }
+    };
+    let package = match BemPackage::open(src) {
+        Ok(package) => package,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            return cause.code().max(BE_BEM_INVALID);
+        }
+    };
+    let bytes = match package.repack_raw() {
+        Ok(bytes) => bytes,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            return cause.code().max(BE_BEM_INVALID);
+        }
+    };
+    if let Err(cause) = std::fs::write(dst, &bytes) {
+        write_buf(err, err_cap, &format!("写入失败：{cause}"));
+        return BE_BEM_BAD_ARG;
+    }
+    BE_BEM_OK
 }
 
 /// 生成 `inspect` JSON；`out_cap` 不足时返回所需字节数（不含结尾 NUL），内容截断。
@@ -750,6 +880,43 @@ mod tests {
             package.validate(),
             Err(Error::Validate(_)) | Err(Error::Payload(..))
         ));
+    }
+
+    #[test]
+    fn writes_and_reopens_package() {
+        let bytes = write_bem_raw(3, MINIMAL.as_bytes(), &[vec![9, 8, 7]]).expect("write");
+        let package = BemPackage::from_bytes(bytes).expect("reopen");
+        assert_eq!(package.minor, 3);
+        assert_eq!(package.read_payload(0).expect("payload"), vec![9, 8, 7]);
+        package.validate().expect("validate");
+    }
+
+    #[test]
+    fn repack_fixture_round_trips() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../android/app/src/androidTest/assets/installer-fixture.bem");
+        if !path.is_file() {
+            return;
+        }
+        let before = BemPackage::open(&path).expect("open fixture");
+        let bytes = before.repack_raw().expect("repack");
+        let after = BemPackage::from_bytes(bytes).expect("reopen repacked");
+        assert_eq!(before.minor, after.minor);
+        assert_eq!(before.manifest_bytes(), after.manifest_bytes());
+        assert_eq!(before.payloads.len(), after.payloads.len());
+        for id in 0..before.payloads.len() as u32 {
+            assert_eq!(
+                before.read_payload(id).expect("before payload"),
+                after.read_payload(id).expect("after payload")
+            );
+        }
+        after.validate().expect("validate repacked");
+    }
+
+    #[test]
+    fn rejects_invalid_manifest_on_write() {
+        let result = write_bem_raw(0, b"not json", &[vec![1]]);
+        assert!(matches!(result, Err(Error::Write(_))));
     }
 
     #[test]

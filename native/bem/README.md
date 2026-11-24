@@ -15,6 +15,16 @@ BEM 包进入设备的**第一条业务链**：容器解析 → manifest 结构�
   以及 `vertex_count × stride`、`index_count × index_size` 的长度自洽；
 - 解压全部 payload（zstd 单帧）并核对 `decoded_size`。
 
+## 写入 / repack（切片 2）
+
+- `write_bem_raw(minor, manifest, payloads)`：以 raw（codec=0）重写容器，包含全套头部/目录/边界校验；
+- `BemPackage::repack_raw()`：读→写；保留 manifest 字节，payload 解出来后按 raw 重新封装；
+- C ABI：`be_bem_repack(input, output, err, cap)`；
+- CLI：`be-bem repack <in> <out>`、`be-bem pack <manifest.json> <payload-dir> <out> [--minor N]`。
+
+实测：对 26 MB 的 EFF 转换产物 repack 后与输入**逐字节一致**，且通过 `validate`。
+zstd 压缩（codec=1）留给后续切片（`ruzstd` 只解码）。
+
 **未覆盖（后续切片）**：像素格式字节表、材质覆盖/驱动器语义、1.4 多资源目标细节、
 ZIP 容器（§14）、JSON 重复键检测。这些当前由 Python 参考实现 `tools/CustomModel/bem_v*.py`
 与 C++ `bem.cpp` 继续承担，直到对应切片迁移完成。

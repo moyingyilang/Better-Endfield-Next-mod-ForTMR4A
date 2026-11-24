@@ -220,7 +220,10 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   `be_source_probe` / `be_source_convert_to_bem`，支持 BEM / EFMI / EFF Format 3 / mod.toml。
 - **BEM 不淘汰**：BEM 仍是原生主线，所有来源最终进入 `native/bem` 校验链。
 - 实测：EFMI `edmin_maid` → 73 MB BEM → 校验通过；EFF3 `lvtsfw` → 26 MB BEM → 校验通过；
-  期间修复了转换器 EFF stream1 stride 与属性声明不一致的真实缺陷。
+  期间修复了转换器 EFF stream1 stride 与属性声明不一致的真实缺陷（已推送到
+  Converter4BENeXt 分支 `agent/crx-lib-api`，commit `6fcd24f`）。
+- **切片 2 进行中**：`native/bem` 增加 BEM 写入/repack（raw payload，C ABI `be_bem_repack`），
+  26 MB EFF 产物 repack 后逐字节一致；合成/材质/驱动器语义仍待迁移。
 
 ### 待办（P3 剩余）
 

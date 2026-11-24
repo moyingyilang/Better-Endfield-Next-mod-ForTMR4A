@@ -30,6 +30,9 @@ int32_t be_bem_validate(const char *path, char *err, uint32_t err_cap);
  * 出错时返回负的错误码。 */
 int64_t be_bem_info_json(const char *path, char *out, uint32_t out_cap);
 
+/* 读入 input.bem 并以 raw payload 重写到 output.bem（读→改→写最小入口）。 */
+int32_t be_bem_repack(const char *input, const char *output, char *err, uint32_t err_cap);
+
 #ifdef __cplusplus
 }
 #endif

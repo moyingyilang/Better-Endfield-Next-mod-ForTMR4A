@@ -26,7 +26,7 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 |---|---|---|---|---|
 | 1 | **BEM 包读取/校验**（导入第一关） | Python `tools/CustomModel/bem_v*.py`（写入/校验参考） + C++ `native/modules/custom_model/bem.cpp` | **Rust 叶子** `native/bem` + C ABI `BemPackage.h` | ✅ 切片 1：容器/结构/payload 引用/长度自洽 + zstd 解压校验 |
 | 1b | **多格式源接入 + 实时转换**（BEM / EFMI / EFF3 / mod.toml） | Converter4BENeXt（C++17，外部 CLI）+ Python 工具链 | **C++ 宿主** `native/convert`（vendored converter，C ABI）+ C 探测/分发 | ✅ 切片 2（本次）：进程内转换，BEM 主线不变 |
-| 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | ⏳ 切片 2 |
+| 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | 🟡 切片 2 进行中：写入器/repack 完成（raw，读→写逐字节一致）；合成/材质/驱动器待做 |
 | 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ⏳ 切片 3 |
 | 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | ⏳ 切片 4 |
 | 5 | 安装/更新/回退状态机 | Java `BemInstaller` / `MmdInstaller` + Python 生成脚本 | **C 主链路** + Java 只做 UI/框架调用 | ⏳ 切片 5 |
@@ -46,6 +46,14 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 - 实测：EFMI `edmin_maid` → 73 MB BEM（9 mesh/18 texture/54 payload）→ `be-bem` 通过；
   EFF3 `lvtsfw/lvt` → 26 MB BEM（4 mesh/5 texture/21 payload）→ `be-bem` 通过；
 - 发现并修复转换器 EFF 路径 stream1 stride/属性不一致缺陷（应回推上游）。
+
+## 2c. 切片 2 进展：BEM 写入 / repack
+
+- `native/bem` 新增 `write_bem_raw` / `BemPackage::repack_raw` / C ABI `be_bem_repack` /
+  CLI `repack`、`pack`；覆盖头部、目录连续性、边界与 manifest JSON 合法性；
+- 8 项 `cargo test` 通过（新增 3 项：写入后重开、夹具 repack 往返、非法 manifest 拒绝）；
+- 实测 26 MB EFF 转换产物 repack 后与输入**逐字节一致**，`validate` 通过；
+  这给“读→改→写”与后续 BEM→IR 提供统一出口。
 
 ## 3. 切片 1 交付物
 
@@ -75,7 +83,7 @@ ZIP 容器（§14）、JSON 重复键检测、流式读取（当前整文件读�
 | 指标 | 当前 |
 |---|---|
 | 业务链中的 Python 实现 | `tools/CustomModel` 89 文件 / 约 2.4 万行（BEM 相关），`scripts/` 生成器 |
-| 已迁到 CRX 的业务段 | 2 / 10（BEM 读取/校验、多格式源接入/实时转换） |
+| 已迁到 CRX 的业务段 | 2.5 / 10（BEM 读/写/校验、多格式源接入/实时转换） |
 | 新增 Rust 叶子 | `native/mod`（mod.toml/IR 校验）、`native/bem`（BEM 读取/校验） |
 | 新增 C 主链路 | `efml4a_source`（资源源抽象，消费 ForTMR2 `lib/`） |
 | 新增 C++ 宿主适配 | `native/convert`（源探测/分发，C ABI 出边界） |
