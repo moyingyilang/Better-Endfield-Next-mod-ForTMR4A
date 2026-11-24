@@ -162,6 +162,18 @@ cp termux/env.example termux/build.env
 
 Build scripts consume generated repository indexes. Refresh affected data after game updates; local research outputs and original game payloads must not be packaged as release assets.
 
+## Credits
+
+This repository is a fork of [**Better Endfield Next (BEN)**](https://github.com/Dr-hydra/Better-Endfield),
+and the fork relationship is **kept on purpose**: renaming should not erase provenance or credit.
+The native modules, host/module ABI, BEM format and toolchain, Android shell and most research records
+come from BEN; ForTMR4A only narrows the platform scope and restructures the business chain for CRX.
+
+Thanks also to [ForTMR](https://github.com/moyingyilang/ForTMR), [ForTMR2](https://github.com/moyingyilang/ForTMR2),
+[Converter4BENeXt](https://github.com/moyingyilang/Converter4BENeXt),
+[endfield-ui](https://github.com/icaruszezen/endfield-ui), [EIEM](https://github.com/Sasye/EIEM),
+and every BEM/MMD creator and tester. Full list: [CREDITS.md](CREDITS.md).
+
 ## License
 
 Better Endfield Next is licensed under [AGPL-3.0-only](LICENSE). It is an independent, unofficial project and is not affiliated with the game developers/publishers. Dependencies/references including MinHook, Dobby, EIEM and 7-Zip retain their own licenses and attribution. Creators are responsible for distribution rights to their models, motion, audio and modules. See the [Name and Logo Usage Notice](NAME_AND_LOGO.en.md) for how the project name and logos may be used.

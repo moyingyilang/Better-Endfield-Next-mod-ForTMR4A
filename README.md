@@ -164,6 +164,17 @@ cp termux/env.example termux/build.env   # 按本机填写
 
 构建脚本使用仓库内已生成的资源索引；游戏更新后需先更新相应资料，不应把本机研究输出或游戏资源载荷打入发布包。
 
+## 致谢
+
+这个仓库是 [**Better Endfield Next（BEN）**](https://github.com/Dr-hydra/Better-Endfield) 的 fork，
+并且**特意保留 fork 关系**：来源与致谢不该被改名抹掉。原生模块、Host/模块 ABI、BEM 规范与工具链、
+Android 壳与大部分研究记录都源自 BEN 原项目；ForTMR4A 只做平台收敛与 CRX 业务链改造。
+
+同样感谢 [ForTMR](https://github.com/moyingyilang/ForTMR)、[ForTMR2](https://github.com/moyingyilang/ForTMR2)、
+[Converter4BENeXt](https://github.com/moyingyilang/Converter4BENeXt)、
+[endfield-ui](https://github.com/icaruszezen/endfield-ui)、[EIEM](https://github.com/Sasye/EIEM)
+以及所有 BEM/MMD 创作者与测试者。完整名单见 [CREDITS.md](CREDITS.md)。
+
 ## 许可
 
 Better Endfield Next 使用 [AGPL-3.0-only](LICENSE)，是独立的非官方项目，与游戏开发商及发行商无关联。MinHook、Dobby、EIEM、7-Zip 等依赖或引用保留各自许可证和来源说明；创作者应自行确认第三方模型、动作、音频和模块的分发授权。名称与标识的使用约定见 [名称与标识使用声明](NAME_AND_LOGO.md)。
