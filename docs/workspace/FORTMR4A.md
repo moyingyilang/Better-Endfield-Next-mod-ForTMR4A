@@ -177,7 +177,22 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 - `ui` 的 Windows 实现 `touch_input.cpp`、`touch_pointer_policy.cpp` 归档（Android 走 `android_compat`，头文件保留）。
 - `custom_model/CMakeLists.txt` 移除引用 `native/tests/` 的 6 个测试 target，避免 CMake 配置失败。
 
-### P2：接入 ForTMR2 + Termux 构建链
+### P2：接入 ForTMR2 + Termux 构建链（状态：接口/构建接线完成，端到端待整包验证）
+
+| 验收项 | 状态 | 证据 |
+|---|---|---|
+| submodule 固定 commit | ✅ | `git submodule status` → `1c60350` |
+| `efml-core` 能校验参考包 | ✅ 宿主 | `efml --json validate third_party/ForTMR2/mods/example-mod` 退出 0 |
+| C ABI 桥（host） | ✅ | `cargo run --bin be-mod-validate -- …/example-mod` → `校验结果: OK` |
+| C ABI 桥（arm64 静态库） | ✅ | `cargo build --release --target aarch64-linux-android` → `libbe_mod.a`（AArch64 ELF，导出 `be_mod_abi_version` / `be_mod_manifest_id` / `be_mod_validate`） |
+| `lib/` 资源源接入 | ✅ 编译级 | `clang -c third_party/ForTMR2/lib/src/sources.c` → AArch64 ELF；已作为 `efml4a_source` 静态库接入 Android CMake |
+| JNI 暴露给 Java | ❌ 未做 | `NativeCommandBridge` 尚无 `validateModPackage`；设备侧无调用路径 |
+| `-DBETTER_ENDFIELD_NEXT_MOD_RUST=ON` 整库链接 | ❌ 未验证 | 未跑 Gradle/NDK 整包构建 |
+| 完整 APK 构建 | ❌ 未验证 | 本地缺 `resources/generated`（需 core 资源包）、NDK 27.2、Gradle 9.3.1 下载 |
+
+结论：**P2 的协议层与构建接线完成，Android 端到端闭环没做完**；不能用“P2 完成”来宣称设备可用。
+
+### 细节
 
 - `third_party/ForTMR2` 以 submodule 固定到 `1c60350`；不复制上游源码。
 - `native/mod`（`be-mod-ffi`）：C ABI 包装 `efml-core`（`be_mod_validate` / `be_mod_manifest_id` /

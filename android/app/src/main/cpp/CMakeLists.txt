@@ -212,6 +212,14 @@ target_link_libraries(betterendfieldnext_android PRIVATE
     ${dl_library}
     ${mediandk_library})
 
+# ForTMR2 的资源源抽象（lib/，LGPL-3.0）。公开部分只有 dir / mem 两个后端；
+# VFS 后端由私有组件在进程边界提供。与上面的可选 Rust 桥相互独立。
+add_library(efml4a_source STATIC
+    "${BETTER_ENDFIELD_NEXT_ROOT}/third_party/ForTMR2/lib/src/sources.c")
+target_include_directories(efml4a_source PUBLIC
+    "${BETTER_ENDFIELD_NEXT_ROOT}/third_party/ForTMR2/lib/include")
+target_link_libraries(betterendfieldnext_android PRIVATE efml4a_source)
+
 # ForTMR4A：可选的 ForTMR2 mod 格式桥（Rust 叶子）。默认关闭；
 # 打开后 native/mod 会用 cargo 产出 libbe_mod.a 并链接进本库。
 option(BETTER_ENDFIELD_NEXT_MOD_RUST "Build and link the Rust mod-format bridge (needs cargo + NDK)" OFF)
