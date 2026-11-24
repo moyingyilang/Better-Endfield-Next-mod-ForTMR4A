@@ -3,9 +3,10 @@
 一条 C ABI 完成 ENTIRE 导入链：
 
 ```
-BEM ────────────────────────────────────────────┐
-EFMI ─┐                                          ├─→ be-ir ─→ mod 目录（mod.toml + 数据 + checksums）
-EFF3 ─┴─ Converter4BENeXt（进程内）→ BEM ─────────┘
+BEM      ───────────────────────────────────────┐
+BEM ZIP  ──（原生容器解包）──────────────────────┤
+EFMI     ─┐                                     ├─→ be-ir ─→ mod 目录（mod.toml + 数据 + checksums）
+EFF3     ─┴─ Converter4BENeXt（进程内）→ BEM ────┘
 mod.toml（已是原生）→ 直接返回 UNSUPPORTED
 ```
 
@@ -26,7 +27,11 @@ int be_source_to_mod(const char *src, const char *catalog_dir,
                      const char *out_mod_dir, char *err, unsigned int err_cap);
 ```
 
-返回：`0` 成功 / `1` 失败 / `2` 参数错误 / `3` 不支持（例如来源已是 `mod.toml`、或 ZIP 未解包）。
+返回：`0` 成功 / `1` 失败 / `2` 参数错误 / `3` 不支持（例如来源已是 `mod.toml`）。
+
+- BEM 原生 ZIP 容器（`manifest.json` + `payloads/NNNN.bin`，可被单一顶层目录包裹）由 `be-ir`
+  内部解包，再走同一条 IR 链；
+- 普通 mod ZIP（EFMI/EFF 压缩包）暂不支持：先解包成目录再传。
 
 ## 宿主 CLI
 

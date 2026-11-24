@@ -750,6 +750,37 @@ pub unsafe extern "C" fn be_ir_convert_bem(
     }
 }
 
+/// BEM 原生 ZIP 容器 → mod 目录（默认选项）。
+///
+/// # Safety
+/// 参数规则同 [`be_ir_convert_bem`]。
+#[no_mangle]
+pub unsafe extern "C" fn be_ir_convert_bem_zip(
+    zip_path: *const c_char,
+    out_dir: *const c_char,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if zip_path.is_null() || out_dir.is_null() {
+        write_buf(err, err_cap, "zip_path/out_dir is null");
+        return BE_IR_BAD_ARG;
+    }
+    let (src, dst) = match (CStr::from_ptr(zip_path).to_str(), CStr::from_ptr(out_dir).to_str()) {
+        (Ok(src), Ok(dst)) => (src, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_IR_BAD_ARG;
+        }
+    };
+    match convert_bem_zip_to_mod(src, dst, &Options::default()) {
+        Ok(_) => BE_IR_OK,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            BE_IR_INVALID
+        }
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn be_ir_abi_version() -> u32 {
     BE_IR_ABI_VERSION

@@ -60,16 +60,26 @@ int be_source_to_mod(const char* src, const char* catalog_dir,
         set_error(err, err_cap, "来源已是 mod.toml（ForTMR2 原生格式），无需转换");
         return BE_PIPELINE_UNSUPPORTED;
     }
-    if (kind == BE_SRC_UNKNOWN || kind == BE_SRC_ZIP) {
-        set_error(err, err_cap, kind == BE_SRC_ZIP
-                                    ? "ZIP 容器暂未接入统一入口（先解包成 BEM/EFMI 目录）"
-                                    : "无法识别的来源：既不是 BEM，也不是 EFMI/EFF3/mod.toml");
+    if (kind == BE_SRC_UNKNOWN) {
+        set_error(err, err_cap, "无法识别的来源：既不是 BEM/ZIP，也不是 EFMI/EFF3/mod.toml");
         return BE_PIPELINE_UNSUPPORTED;
     }
 
     if (mkdir_p(out_mod_dir) != 0) {
         append(err, err_cap, "创建输出目录失败：", out_mod_dir);
         return BE_PIPELINE_ERR;
+    }
+
+    /* BEM 原生 ZIP 容器：be-ir 内部解包成 BEM 再进 IR 链。 */
+    if (kind == BE_SRC_ZIP) {
+        char detail[512] = {0};
+        int zip_rc = be_ir_convert_bem_zip(src, out_mod_dir, detail, (unsigned)sizeof detail);
+        if (zip_rc != BE_IR_OK) {
+            append(err, err_cap,
+                   "ZIP 不是 BEM 原生容器（manifest.json + payloads/NNNN.bin）：", detail);
+            return BE_PIPELINE_ERR;
+        }
+        return BE_PIPELINE_OK;
     }
 
     /* BEM 直接进 IR 链。 */

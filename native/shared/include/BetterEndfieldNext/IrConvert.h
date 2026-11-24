@@ -23,6 +23,10 @@ uint32_t be_ir_abi_version(void);
 int32_t be_ir_convert_bem(const char *bem_path, const char *out_dir,
                           char *err, uint32_t err_cap);
 
+/* BEM 原生 ZIP 容器（manifest.json + payloads/NNNN.bin）→ mod 目录。 */
+int32_t be_ir_convert_bem_zip(const char *zip_path, const char *out_dir,
+                              char *err, uint32_t err_cap);
+
 #ifdef __cplusplus
 }
 #endif

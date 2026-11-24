@@ -17,6 +17,13 @@ BEM 不淘汰：本 crate 只做“BEM → IR”的单向转换，BEM 读取/写
 **未映射**：骨骼 bindpose、材质槽名与关键字覆盖、形态键（BEM 1.3 形变参数）、
 1.5 驱动器、1.4 多资源目标。这些需要游戏 catalog 知识，留给后续切片。
 
+## BEM 原生 ZIP 容器
+
+`convert_bem_zip_to_mod` / CLI `convert-zip` / C ABI `be_ir_convert_bem_zip`：
+按 BEM 规范 §14 读取（`manifest.json` + `payloads/NNNN.bin`，STORED/DEFLATE，可剥单一顶层目录），
+在内存中重封装成 BEM 然后复用同一条转换链。`format_version` 缺失时按字段推断 1.0–1.5。
+普通 mod ZIP（EFMI/EFF 压缩包）需要先解包，不在这一层处理。
+
 ## 用法
 
 ```bash

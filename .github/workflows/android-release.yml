@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: Resolve version
         id: version
