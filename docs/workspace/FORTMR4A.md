@@ -168,7 +168,16 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 - 保留在主线：`android/`、`native/modules/{ui,camera,actions,media_screen,weapon_appearance,custom_model,model}`、
   `native/shared/`、`tools/`、`resources/`（`bem-preview` 仍被 Android 资产引用）、`scripts/*.py`、`web/`。
 
-### 待办（P1 起）
+### P1：保留模块内的 Windows 残留清退
+
+- `native/shared/host/` 仅保留 `pose_lease.cpp`、`type_name_contract.h`，其余 Windows Host 实现归档。
+- `native/modules/media_screen/` 的 `capture_broker`/`window_capture`/`remote_capture`/`game_input_*` 归档（D3D11/DXGI/DirectInput）。
+- `camera`、`custom_model` 的 `overlay/`（GDI+）归档；`custom_model` 的 `driver_audio_win.cpp`、`native_mesh_layout.cpp` 归档。
+- `actions` / `weapon_appearance` / `eiem compat` 的 Windows 测试与夹具归档。
+- `ui` 的 Windows 实现 `touch_input.cpp`、`touch_pointer_policy.cpp` 归档（Android 走 `android_compat`，头文件保留）。
+- `custom_model/CMakeLists.txt` 移除引用 `native/tests/` 的 6 个测试 target，避免 CMake 配置失败。
+
+### 待办（P2 起）
 
 - 清理保留模块内的 Windows 残留（D3D11 捕获、GDI+ overlay、`driver_audio_win`、`native/shared/host` 非共用部分）。
 - 接入 ForTMR2：`efml-core` / `efml-cli` / `lib/efml4a_source`；跑通 `mods/example-mod` 校验。

@@ -1,3 +1,5 @@
+# ForTMR4A: Android-only. 原 Windows 侧 BemValidate/Bem*Tests/BemCompose 源码已归档到
+# legacy/windows/native/；这里只保留双端共用的解码/组合库与 Android 目标需要的部分。
 # Platform-neutral package decoding and resource selection, shared by PC/Android.
 # Engine calls, process memory access and native layout discovery stay in adapters.
 file(GLOB BEM_ZSTD_COMMON CONFIGURE_DEPENDS ../../shared/third_party/zstd/lib/common/*.c)
@@ -23,7 +25,6 @@ target_include_directories(BetterEndfieldNext.CustomModelCore PUBLIC "${CMAKE_CU
 target_link_libraries(BetterEndfieldNext.CustomModelCore PUBLIC BetterEndfieldNext.BemZstd BetterEndfieldNext.BemMiniz)
 set_target_properties(BetterEndfieldNext.CustomModelCore PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-add_executable(BetterEndfieldNext.BemValidate EXCLUDE_FROM_ALL ../../tests/bem_v1_validate.cpp)
 if(WIN32)
     set(ASTCENC_CLI OFF CACHE BOOL "" FORCE)
     set(ASTCENC_ISA_SSE2 ON CACHE BOOL "" FORCE)
@@ -31,27 +32,9 @@ if(WIN32)
     set(ASTCENC_UNITTEST OFF CACHE BOOL "" FORCE)
     add_subdirectory(../../shared/third_party/astcenc "${CMAKE_CURRENT_BINARY_DIR}/preview-astc")
     target_link_libraries(BetterEndfieldNext.CustomModelCore PUBLIC astcenc-sse2-static)
-    add_executable(BetterEndfieldNext.BemCompose ../../tools/bem_compose_main.cpp)
+    add_executable(BetterEndfieldNext.BemCompose ${CMAKE_CURRENT_SOURCE_DIR}/../../../legacy/windows/native/tools/bem_compose_main.cpp)
     target_link_libraries(BetterEndfieldNext.BemCompose PRIVATE BetterEndfieldNext.CustomModelCore)
     target_compile_options(BetterEndfieldNext.BemCompose PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
     set_target_properties(BetterEndfieldNext.BemCompose PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${BETTER_ENDFIELD_NEXT_STAGE_DIR}/tools/BemCompose")
-endif()
-target_link_libraries(BetterEndfieldNext.BemValidate PRIVATE BetterEndfieldNext.CustomModelCore)
-add_executable(BetterEndfieldNext.BemV11CapacityTests EXCLUDE_FROM_ALL ../../tests/bem_v11_capacity_tests.cpp)
-add_executable(BetterEndfieldNext.BemV13MorphTests EXCLUDE_FROM_ALL ../../tests/bem_v13_morph_tests.cpp)
-add_executable(BetterEndfieldNext.AnimationDriverTests EXCLUDE_FROM_ALL
-    ../../tests/animation_driver_tests.cpp animation_driver.cpp)
-target_include_directories(BetterEndfieldNext.AnimationDriverTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_compile_features(BetterEndfieldNext.AnimationDriverTests PRIVATE cxx_std_20)
-add_executable(BetterEndfieldNext.BemV14ResourceTests EXCLUDE_FROM_ALL ../../tests/bem_v14_resource_tests.cpp)
-target_link_libraries(BetterEndfieldNext.BemV14ResourceTests PRIVATE BetterEndfieldNext.CustomModelCore)
-target_link_libraries(BetterEndfieldNext.BemV13MorphTests PRIVATE BetterEndfieldNext.CustomModelCore)
-add_executable(BetterEndfieldNext.BemKeepTextureValidate EXCLUDE_FROM_ALL ../../tests/bem_keep_texture_validate.cpp)
-target_link_libraries(BetterEndfieldNext.BemKeepTextureValidate PRIVATE BetterEndfieldNext.CustomModelCore)
-target_link_libraries(BetterEndfieldNext.BemV11CapacityTests PRIVATE BetterEndfieldNext.CustomModelCore)
-if(ANDROID)
-    target_link_libraries(BetterEndfieldNext.BemValidate PRIVATE c++_static c++abi)
-    target_link_libraries(BetterEndfieldNext.BemV11CapacityTests PRIVATE c++_static c++abi)
-    target_link_libraries(BetterEndfieldNext.BemV13MorphTests PRIVATE c++_static c++abi)
 endif()
