@@ -226,6 +226,8 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   26 MB EFF 产物 repack 后逐字节一致；合成/材质/驱动器语义仍待迁移。
 - **切片 3 完成**：`native/ir`（`be-ir`）把 BEM 转成 ForTMR2 `mod.toml`/IR，
   生成后用 `efml-core` 自校验；Android 可选开关 `BETTER_ENDFIELD_NEXT_IR_RUST`。
+- **切片 3.5 完成**：`native/pipeline` 统一入口 `be_source_to_mod`，
+  BEM/EFMI/EFF3 三种来源一次调用产出 mod 目录；Android 开关 `BETTER_ENDFIELD_NEXT_PIPELINE`。
 
 ### 待办（P3 剩余）
 

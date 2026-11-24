@@ -141,6 +141,7 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 | `termux/` | Termux 构建链（改编自 JMNeXt builders，MPL-2.0） |
 | `native/mod/`、`native/bem/`、`native/convert/` | ForTMR2 `efml-core` 的 C ABI 桥、BEM 读取/校验、EFMI/EFF3→BEM 进程内转换 |
 | `native/ir/` | BEM → ForTMR2 `mod.toml`/IR 转换（Rust 叶子，C ABI） |
+| `native/pipeline/` | 统一导入入口 `be_source_to_mod`（C 主链路：BEM/EFMI/EFF3 → mod 目录） |
 | `third_party/Converter4BENeXt/` | vendored 转换器（AGPL，含 C ABI 与静态库目标） |
 | `third_party/ForTMR2/` | ForTMR2 submodule（固定 commit） |
 

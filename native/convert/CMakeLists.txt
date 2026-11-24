@@ -25,7 +25,6 @@ target_link_libraries(c4ben_vendor PUBLIC ZLIB::ZLIB)
 
 add_library(be_convert STATIC source_convert.cpp)
 target_include_directories(be_convert PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${BE_VENDOR_C4BEN}/src"
     "${BETTER_ENDFIELD_NEXT_ROOT}/native/shared/include")
 target_compile_features(be_convert PRIVATE cxx_std_17)
@@ -33,6 +32,5 @@ target_link_libraries(be_convert PRIVATE c4ben_vendor)
 
 add_executable(be-convert-probe EXCLUDE_FROM_ALL tests/probe_harness.c)
 target_include_directories(be-convert-probe PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${BETTER_ENDFIELD_NEXT_ROOT}/native/shared/include")
 target_link_libraries(be-convert-probe PRIVATE be_convert)

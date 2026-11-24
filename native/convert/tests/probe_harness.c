@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SourceConvert.h"
+#include "BetterEndfieldNext/SourceConvert.h"
 
 static const char* kind_name(int kind) {
     switch (kind) {

@@ -3,7 +3,7 @@
 // - BEM 是原生格式，不淘汰（历史包与 Converter4BENeXt 的输出都走同一条读取链）；
 // - EFMI / EFF Format 3 通过 vendored Converter4BENeXt 在进程内转换到 BEM；
 // - ForTMR2 的 mod.toml 是另一条原生格式，交给 native/mod 的 efml-core 链。
-#include "SourceConvert.h"
+#include "BetterEndfieldNext/SourceConvert.h"
 
 #include <cstdio>
 #include <cstring>

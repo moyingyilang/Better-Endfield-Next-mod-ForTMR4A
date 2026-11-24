@@ -255,3 +255,19 @@ if(BETTER_ENDFIELD_NEXT_IR_RUST)
     target_link_libraries(betterendfieldnext_android PRIVATE be_ir)
     add_dependencies(betterendfieldnext_android be_ir_rust)
 endif()
+
+# ForTMR4A：统一导入入口（C 主链路）。需要 convert + ir 两个叶子；默认关闭。
+option(BETTER_ENDFIELD_NEXT_PIPELINE "Build unified source -> mod.toml import pipeline" OFF)
+if(BETTER_ENDFIELD_NEXT_PIPELINE)
+    if(NOT TARGET be_convert)
+        add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/convert"
+            "${CMAKE_CURRENT_BINARY_DIR}/be-convert")
+    endif()
+    if(NOT TARGET be_ir)
+        add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/ir"
+            "${CMAKE_CURRENT_BINARY_DIR}/be-ir-rust")
+    endif()
+    add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/pipeline"
+        "${CMAKE_CURRENT_BINARY_DIR}/be-pipeline")
+    target_link_libraries(betterendfieldnext_android PRIVATE be_pipeline)
+endif()
