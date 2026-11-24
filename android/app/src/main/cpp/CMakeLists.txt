@@ -237,3 +237,12 @@ if(BETTER_ENDFIELD_NEXT_BEM_RUST)
     target_link_libraries(betterendfieldnext_android PRIVATE be_bem)
     add_dependencies(betterendfieldnext_android be_bem_rust)
 endif()
+
+# ForTMR4A：多格式源接入（BEM / EFMI / EFF3 / mod.toml）。默认关闭；
+# 打开后 Converter4BENeXt 以静态库形式进入进程，导入时实时转换，不再调外部 CLI。
+option(BETTER_ENDFIELD_NEXT_CONVERT "Build and link EFMI/EFF -> BEM converter (Converter4BENeXt)" OFF)
+if(BETTER_ENDFIELD_NEXT_CONVERT)
+    add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/convert"
+        "${CMAKE_CURRENT_BINARY_DIR}/be-convert")
+    target_link_libraries(betterendfieldnext_android PRIVATE be_convert)
+endif()

@@ -214,6 +214,14 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   `libbe_bem.a` 验证 `be_bem_validate`/`be_bem_info_json`；与 Python `bem_tool.py inspect` 关键字段一致。
 - 台账与后续切片见 [CRX-REWRITE.md](CRX-REWRITE.md)。
 
+### P3 切片 2：多格式源接入 + Converter4BENeXt 进程内转换
+
+- `third_party/Converter4BENeXt`（vendored，AGPL）新增 C ABI 与静态库；`native/convert` 提供
+  `be_source_probe` / `be_source_convert_to_bem`，支持 BEM / EFMI / EFF Format 3 / mod.toml。
+- **BEM 不淘汰**：BEM 仍是原生主线，所有来源最终进入 `native/bem` 校验链。
+- 实测：EFMI `edmin_maid` → 73 MB BEM → 校验通过；EFF3 `lvtsfw` → 26 MB BEM → 校验通过；
+  期间修复了转换器 EFF stream1 stride 与属性声明不一致的真实缺陷。
+
 ### 待办（P3 剩余）
 
 - 清理保留模块内的 Windows 残留（D3D11 捕获、GDI+ overlay、`driver_audio_win`、`native/shared/host` 非共用部分）。

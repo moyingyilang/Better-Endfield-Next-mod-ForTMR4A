@@ -5,6 +5,12 @@
 > 规则来源：[ForTMR2 `LANGUAGE.md`](https://github.com/moyingyilang/ForTMR2/blob/main/LANGUAGE.md)。
 > 状态：2026-11-24 起分批执行，**按“段”迁移、每段能用测试证明等价**，不做一次性大爆炸。
 
+## 0. 硬约束：BEM 不淘汰
+
+BEM 是 ForTMR4A 的原生创作物格式，**不因为接入 ForTMR2 / EFF 而退役**：
+BEM 文件、Converter4BENeXt 的输出、以及未来所有来源的转换结果，统一进入同一条
+BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只增加“入口”，不减“主线”。
+
 ## 1. CRX 在业务链上的落点
 
 | 层 | 语言 | 业务链职责 | 禁止 |
@@ -18,7 +24,8 @@
 
 | # | 业务段 | 现实现 | CRX 目标 | 状态 |
 |---|---|---|---|---|
-| 1 | **BEM 包读取/校验**（导入第一关） | Python `tools/CustomModel/bem_v*.py`（写入/校验参考） + C++ `native/modules/custom_model/bem.cpp` | **Rust 叶子** `native/bem` + C ABI `BemPackage.h` | ✅ **切片 1（本次）**：容器/结构/payload 引用/长度自洽 + zstd 解压校验 |
+| 1 | **BEM 包读取/校验**（导入第一关） | Python `tools/CustomModel/bem_v*.py`（写入/校验参考） + C++ `native/modules/custom_model/bem.cpp` | **Rust 叶子** `native/bem` + C ABI `BemPackage.h` | ✅ 切片 1：容器/结构/payload 引用/长度自洽 + zstd 解压校验 |
+| 1b | **多格式源接入 + 实时转换**（BEM / EFMI / EFF3 / mod.toml） | Converter4BENeXt（C++17，外部 CLI）+ Python 工具链 | **C++ 宿主** `native/convert`（vendored converter，C ABI）+ C 探测/分发 | ✅ 切片 2（本次）：进程内转换，BEM 主线不变 |
 | 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | ⏳ 切片 2 |
 | 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ⏳ 切片 3 |
 | 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | ⏳ 切片 4 |
@@ -29,7 +36,18 @@
 | 9 | 构建/资源生成 | Python `scripts/*.py` + PowerShell（已归档） | shell + Rust CLI | ⏳ 切片 8 |
 | 10 | 设置界面 | Java（程序化 UI） | Java 平台壳（不在重写范围）；视觉走 Endfield UI X | — |
 
-## 3. 切片 1 交付物（本次）
+## 2b. 切片 2 交付物：多格式源接入（本次）
+
+- `third_party/Converter4BENeXt/`：上游 `24c3a8a` vendored；抽出 `convertEfmi()`、
+  新增 C ABI（`c4ben_probe/convert/convert_profile`）、`-DC4BEN_NO_MAIN` 库模式与 `lib` 目标；
+- `native/convert/`：`be_source_probe` / `be_source_convert_to_bem` C ABI，
+  识别 BEM / mod.toml / EFMI / EFF3 / ZIP，EFMI/EFF 进程内转 BEM；
+- Android CMake 可选开关 `BETTER_ENDFIELD_NEXT_CONVERT`（默认 OFF）；
+- 实测：EFMI `edmin_maid` → 73 MB BEM（9 mesh/18 texture/54 payload）→ `be-bem` 通过；
+  EFF3 `lvtsfw/lvt` → 26 MB BEM（4 mesh/5 texture/21 payload）→ `be-bem` 通过；
+- 发现并修复转换器 EFF 路径 stream1 stride/属性不一致缺陷（应回推上游）。
+
+## 3. 切片 1 交付物
 
 - `native/bem/`（`be-bem`，Rust 叶子）：
   - 容器：magic / 版本 1.0–1.5 / 40B 头 / 尺寸 / 32B 目录 / 连续性与边界 / codec；
@@ -57,9 +75,10 @@ ZIP 容器（§14）、JSON 重复键检测、流式读取（当前整文件读�
 | 指标 | 当前 |
 |---|---|
 | 业务链中的 Python 实现 | `tools/CustomModel` 89 文件 / 约 2.4 万行（BEM 相关），`scripts/` 生成器 |
-| 已迁到 CRX 的业务段 | 1 / 10（BEM 读取/校验） |
+| 已迁到 CRX 的业务段 | 2 / 10（BEM 读取/校验、多格式源接入/实时转换） |
 | 新增 Rust 叶子 | `native/mod`（mod.toml/IR 校验）、`native/bem`（BEM 读取/校验） |
 | 新增 C 主链路 | `efml4a_source`（资源源抽象，消费 ForTMR2 `lib/`） |
+| 新增 C++ 宿主适配 | `native/convert`（源探测/分发，C ABI 出边界） |
 
 ## 6. 非目标
 
