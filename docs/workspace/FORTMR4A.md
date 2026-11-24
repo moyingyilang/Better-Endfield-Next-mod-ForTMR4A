@@ -1,6 +1,6 @@
 # ForTMR4A 分支：平台收敛与 ForTMR2 集成方案
 
-> 状态：方案定稿，P0 部分已执行
+> 状态：方案定稿，P0 / P0.5 已执行
 > 日期：2026-11-24
 > 分支：`better-endfield-next-mod-ForTMR4A`（Git 分支名不允许空格）
 > 目录：`Better-Endfield-Next-mod-ForTMR4A`
@@ -114,9 +114,9 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 
 | 阶段 | 内容 | 验收 | 预估 |
 |---|---|---|---|
-| **P0（已做一半）** | 分支/目录改名、README 平台声明、回滚 tag | 本次提交 | — |
-| P0.5 | 移除 Windows 构建入口；CI 收敛为 Android；`scripts/` 改为 shell/Makefile | Linux 宿主上 `./gradlew :app:assembleRelease` 通过；CI 无 Windows job | 3–5 天 |
-| P1 | Windows 资产清退：`ui/`、`installer/`、`native/loaders/`、Windows 专用模块迁 `legacy/windows/`（不删，保留许可与来源） | 构建只依赖 `android/` + 共用 native TU + `tools` | 1–2 周 |
+| **P0（已完成）** | 分支/目录改名、README 平台声明、回滚 tag | 本次提交 | — |
+| **P0.5（已完成，见 §11）** | Windows 资产整体归档 `legacy/windows/`；CI 收敛为 Android-only；引用与测试注册表重新指向 | 构建入口只剩 `android/`；无 Windows job；注册表源路径全部可解析 | — |
+| P1 | 清理保留模块内的 Windows 残留文件（`media_screen` 的 D3D11 捕获、`*/overlay`、`driver_audio_win`、`native/shared/host` 非共用部分） | `native/` 内无 Win32 头依赖，Android 构建仍通过 | 1–2 周 |
 | P2 | 接入 ForTMR2：submodule（pin commit）、CMake 消费 `lib/`、`efml-cli` 校验 mod、C ABI shim crate | `mods/example-mod` 能在 Android 侧解析/校验；`efml-cli validate` 通过 | 2–3 周 |
 | P3 | BEM→IR 转换器（Rust 叶子，独立仓/子目录），替换 Python 转换链 | BEM 1.0–1.5 黄金样本逐字节对拍；`efml-cli` 可打包 | 3–4 周 |
 | P4 | CRX 清退：`web/` 迁出、JS 预览换 WASM、Python 实现降级为构建 glue | 仓库无 Python/JS 实现代码 | 2–3 周 |
@@ -145,8 +145,31 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 
 ## 11. 本次已执行
 
+### P0：命名与平台声明
+
 - Git 分支 `main` → `better-endfield-next-mod-ForTMR4A`，并打回滚 tag `pre-fortmr4a`。
 - 工作目录 `Better-Endfield` → `Better-Endfield-Next-mod-ForTMR4A`。
 - `README.md` / `README.en.md`：标题与显示名改为 ForTMR4A，新增平台范围声明、ForTMR2 关系、
   构建链改为 Linux 宿主 → Android 产物，仓库布局表中标注 Windows 资产已停用。
 - 本方案文档：`docs/workspace/FORTMR4A.md`。
+
+### P0.5：Windows 资产归档与 CI 收敛
+
+- 整体 `git mv` 到 `legacy/windows/`（保留历史与许可）：`ui/`、`installer/`、`native/loaders/`、
+  `native/modules/{combat_stats,gacha,music,voice}/`、`native/CMakeLists.txt`、`native/tests/`、
+  `native/research/`、`native/tools/`、`scripts/*.ps1`（`Workspace.ps1` 保留）、
+  `scripts/ci/windows.ps1`、`.github/workflows/release.yml`、`BetterEndfieldNext.slnx`、`global.json`。
+- `.gitignore` 增加 `!/legacy/windows/**`，归档内容可追踪；`legacy/windows/README.md` 记录来源、规模与许可边界。
+- CI：新增 Android-only 流水线 `.github/workflows/android-release.yml`（ubuntu + JDK 21 + NDK 27，
+  产物仅 APK；签名/发布留给发布主机）；原四段流水线归档。
+- 引用重定向：`config/test-suites.json`（67 处源路径）、`config/document-catalog.json`（32 处）、
+  `scripts/{BuildResourcePacks,UpdateCombatAvatars,run_workspace_tests,BuildDshPlugin}.py`、
+  `scripts/tests/test_next_identity.py`；重定向后注册表的 0 个源路径缺失。
+- 保留在主线：`android/`、`native/modules/{ui,camera,actions,media_screen,weapon_appearance,custom_model,model}`、
+  `native/shared/`、`tools/`、`resources/`（`bem-preview` 仍被 Android 资产引用）、`scripts/*.py`、`web/`。
+
+### 待办（P1 起）
+
+- 清理保留模块内的 Windows 残留（D3D11 捕获、GDI+ overlay、`driver_audio_win`、`native/shared/host` 非共用部分）。
+- 接入 ForTMR2：`efml-core` / `efml-cli` / `lib/efml4a_source`；跑通 `mods/example-mod` 校验。
+- BEM→IR 转换器（Rust 叶子，独立仓/子目录）。

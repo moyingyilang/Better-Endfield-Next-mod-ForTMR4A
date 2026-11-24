@@ -26,4 +26,4 @@ cmake --build build/native --config Release --target BetterEndfieldNext.ActionsP
 
 ## 构建分发
 
-在 `native/CMakeLists.txt` 的 `BetterEndfieldNext.Layout` 目标中，构建系统会自动将本目录下的 `.bin` 数据文件复制到安装包/交付目录的 `modules/actions/` 子路径下。
+在 `legacy/windows/native/CMakeLists.txt`（Windows 归档）的 `BetterEndfieldNext.Layout` 目标中，构建系统会自动将本目录下的 `.bin` 数据文件复制到安装包/交付目录的 `modules/actions/` 子路径下。

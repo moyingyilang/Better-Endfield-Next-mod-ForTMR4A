@@ -100,15 +100,15 @@ def core_files(platform, outputs):
     if platform=='android':
         preset=REPO/'android/resources/character-presets.json';voice=REPO/'android/resources/voice-catalog-index.json'
     files={'model/character-presets.json':preset,'voice/voice-catalog-index.json':voice,
-        'model/character-names.json':REPO/('android/resources/character-names.json' if platform=='android' else 'ui/BetterEndfieldNext.UI/Assets/model/character-names.json'),
+        'model/character-names.json':REPO/('android/resources/character-names.json' if platform=='android' else 'legacy/windows/ui/BetterEndfieldNext.UI/Assets/model/character-names.json'),
         }
     for file in (REPO/'native/modules/actions/assets').glob('pose_*.bin'):files['actions/'+file.name]=file
     if platform=='windows':
-        files['model/character-names-en.json']=REPO/'ui/BetterEndfieldNext.UI/Assets/model/character-names-en.json'
+        files['model/character-names-en.json']=REPO/'legacy/windows/ui/BetterEndfieldNext.UI/Assets/model/character-names-en.json'
         files['combat/combat-dictionary.json']=output('combat_dictionary','resources/generated/combat/combat-dictionary.json')
         manifests=Path(outputs.get('manifests',REPO/'manifests'))
         for name in ('combat-semantics.besem','buff-sources.bemap'): files['combat/'+name]=manifests/'combat'/name
-        for file in (REPO/'native/modules/combat_stats/assets/avatars').glob('*.png'):files['icons/avatars/'+file.name]=file
+        for file in (REPO/'legacy/windows/native/modules/combat_stats/assets/avatars').glob('*.png'):files['icons/avatars/'+file.name]=file
         for file in (REPO/'web/public/icons/items').glob('wpn_*.png'):files['icons/items/'+file.name]=file
     else:
         files['model/android-normal-rules.json']=REPO/'android/resources/android-normal-rules.json'

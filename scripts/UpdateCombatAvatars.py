@@ -92,7 +92,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     args.workspace = ws = load_workspace(args.workspace_config)
     args.output = args.output or ws.path("resource_update.outputs.avatars")
-    args.overlay_output = args.overlay_output or configured_path(ws, "resource_update.outputs.avatar_overlay", ws.root / "native/modules/combat_stats/overlay")
+    args.overlay_output = args.overlay_output or configured_path(ws, "resource_update.outputs.avatar_overlay", ws.root / "legacy/windows/native/modules/combat_stats/overlay")
     args.index_url = args.index_url or ws.get("resource_update.avatar_index_url", INDEX_URL)
     return args
 

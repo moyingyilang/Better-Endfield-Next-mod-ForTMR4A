@@ -20,6 +20,7 @@
 ## 分支与平台
 
 - [ForTMR4A 平台收敛与 ForTMR2 集成方案](workspace/FORTMR4A.md)：Android 为唯一产品平台，Linux 仅作构建宿主，Windows 已移除；mod 格式对接 ForTMR2 的 `mod.toml`/IR 与 `efml4a_source`。
+- 归档映射：Windows 构建链已整体移入 `legacy/windows/`（`ui/`、`installer/`、`native/loaders/`、Windows 专用模块、PowerShell 脚本、旧 CI），不参与构建。
 
 ## 清单与引用
 

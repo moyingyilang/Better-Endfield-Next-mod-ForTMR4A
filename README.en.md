@@ -45,7 +45,7 @@ The Windows app includes Chinese/English localization, light/dark themes, runtim
 
 ## Install and start
 
-### Windows
+### Windows (removed; upstream notes kept)
 
 Download the Windows installer from [Releases](https://github.com/Dr-hydra/Better-Endfield/releases), open Better Endfield Next, check the game path, enable the features you need and launch the game. Windows 10/11 x64 is required.
 
@@ -127,10 +127,9 @@ Windows stores its main configuration at `%LocalAppData%\BetterEndfieldNext\Bett
 
 | Directory | Contents |
 | --- | --- |
-| `ui/BetterEndfieldNext.UI/` | WinUI desktop controller and assets (Windows, retired, reference only) |
-| `native/modules/` | Model, BEM, voice, music, combat, UI, camera, actions and gacha modules |
+| `native/modules/` | Built-in modules for the Android target (model, BEM, UI, camera, actions, media screen, weapon appearance) |
 | `native/shared/` | Public C ABI, hook chain, `android_compat` platform layer and native deps |
-| `native/loaders/` | Windows injector and XInput proxy (retired, reference only) |
+| `legacy/windows/` | Archived Windows build chain (UI, installer, injector, Windows-only modules, PowerShell scripts, old CI); not built |
 | `android/` | Android app, framework entry, runtime and in-game deck |
 | `tools/CustomModel/` | BEM exports, conversion, validation, projects and character profiles |
 | `manifests/`, `resources/` | Model/action/voice/combat indexes and generation inputs |

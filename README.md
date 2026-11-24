@@ -45,7 +45,7 @@ Windows 提供中文/英文界面、明暗主题、运行状态和日志、游�
 
 ## 安装与启动
 
-### Windows
+### Windows（已移除，仅保留上游说明）
 
 从 [Releases](https://github.com/Dr-hydra/Better-Endfield/releases) 下载 Windows 安装包，启动 Better Endfield Next，检查游戏路径并开启需要的功能，然后保存并启动游戏。运行环境为 Windows 10/11 x64。
 
@@ -129,10 +129,9 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 
 | 目录 | 内容 |
 | --- | --- |
-| `ui/BetterEndfieldNext.UI/` | WinUI 桌面管理界面（Windows，已停用，仅参考） |
-| `native/modules/` | 模型、BEM、配音、音乐、战斗、界面、相机、动作与寻访模块 |
+| `native/modules/` | Android 目标的内置模块（模型、BEM、界面、相机、动作、媒体屏、武器外观） |
 | `native/shared/` | 公共 C ABI、Hook 链、`android_compat` 平台层与原生依赖 |
-| `native/loaders/` | Windows 注入器与 XInput 代理（已停用，仅参考） |
+| `legacy/windows/` | 归档的 Windows 构建链（`ui/`、`installer/`、注入器、Windows 专用模块、PowerShell 脚本、旧 CI），不参与构建 |
 | `android/` | Android 应用、框架入口、运行时与游戏内面板 |
 | `tools/CustomModel/` | BEM 导出、转换、校验、工程与角色资料工具 |
 | `manifests/`、`resources/` | 模型/动作/语音/战斗索引及生成输入 |

@@ -1,5 +1,5 @@
 // Schema 13 combat record types (raw file shape) and the analysed model the
-// UI renders. Mirrors the writer in native/modules/combat_stats/module.cpp.
+// UI renders. Mirrors the writer in legacy/windows/native/modules/combat_stats/module.cpp.
 
 export interface Aggregate {
   damage: number;

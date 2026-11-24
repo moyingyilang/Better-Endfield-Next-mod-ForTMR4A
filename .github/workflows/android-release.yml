@@ -1,0 +1,133 @@
+name: android-release
+
+# ForTMR4A 发布流水线：唯一产物是 Android arm64 APK。
+# 原四段流水线（Windows / Android / tools / publish）已归档到
+# legacy/windows/.github/workflows/release.yml；签名与发布由发布主机完成，
+# 本工作流只构建并上传未签名产物。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version from Directory.Build.props, without the leading v
+        required: true
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: android-release
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: "27.2.12479018"
+
+jobs:
+  android:
+    name: Android arm64
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          props=$(python3 -c "import xml.etree.ElementTree as ET;print(ET.parse('Directory.Build.props').getroot().findtext('.//Version').strip())")
+          requested="${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}"
+          if [ -z "$requested" ]; then requested="${GITHUB_REF_NAME#v}"; fi
+          if [ -n "$requested" ] && [ "$requested" != "$props" ]; then
+            echo "Requested version $requested does not match Directory.Build.props ($props)." >&2
+            exit 1
+          fi
+          echo "value=$props" >> "$GITHUB_OUTPUT"
+          echo "Building $props"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle.kts', 'android/gradle.properties', 'android/settings.gradle.kts') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      # The action defaults to "tools platform-tools", but the legacy tools
+      # package no longer exists in the SDK repository and fails the install.
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install NDK and platform
+        run: |
+          sdkmanager --install "platforms;android-37.0" "ndk;$NDK_VERSION"
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          ln -sfn "$sdk/platforms/android-37.0" "$sdk/platforms/android-37"
+          ls -1 "$sdk/platforms"
+
+      - name: Download core package
+        run: |
+          set -euo pipefail
+          core=$(python3 - <<'PY'
+          import json
+          revisions = json.load(open('config/resource-packs.json'))['revisions']['core']['android']
+          source = json.load(open('android/resources/resource-source.json'))
+          game = (source.get('provenance') or {}).get('gameVersion') or source.get('gameVersion')
+          print(f"{game}.{revisions[game]}")
+          PY
+          )
+          echo "core package: $core"
+          curl -fsSL -o core.zip \
+            "https://github.com/${{ github.repository }}/releases/download/game-resources/BE-Core-Android-$core.zip"
+
+      - name: Restore generated inputs
+        run: pwsh ./scripts/ci/fetch-core.ps1 -Platform android -Archive core.zip
+
+      # No signing key is on this agent, so the build emits an unsigned APK and
+      # the release host signs it. build.gradle.kts decides that itself.
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          test -d "$sdk"
+          printf '{"schema_version": 1, "tools": {"android_sdk": "%s"}}\n' "$sdk" > ci-workspace.json
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --console=plain --no-daemon \
+            -PworkspaceConfig="$GITHUB_WORKSPACE/ci-workspace.json"
+
+      - name: Stage release payload
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.value }}"
+          name="BetterEndfieldNext-$version-Android-arm64.apk"
+          mkdir -p payload
+          apk=$(find build -path '*/outputs/apk/release/*.apk' -type f | head -1)
+          test -n "$apk"
+          cp "$apk" "payload/$name"
+          python3 - "$version" "$name" <<'PY'
+          import json, sys
+          version, name = sys.argv[1], sys.argv[2]
+          json.dump({"version": version, "product": "Better Endfield Next mod ForTMR4A",
+                     "components": [{"name": name, "kind": "apk"}]},
+                    open('payload/payload.json', 'w'), indent=2)
+          PY
+          ls -l payload
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: payload
+          if-no-files-found: error
+          retention-days: 3

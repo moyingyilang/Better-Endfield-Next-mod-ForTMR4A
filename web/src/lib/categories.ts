@@ -1,4 +1,4 @@
-// Mirrors RdpsContributionKind in native/modules/combat_stats/module.cpp:
+// Mirrors RdpsContributionKind in legacy/windows/native/modules/combat_stats/module.cpp:
 // one category per factor of the game's damage formula, attacker side first.
 export interface ContributionCategory {
   id: string;

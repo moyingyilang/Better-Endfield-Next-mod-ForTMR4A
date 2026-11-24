@@ -157,7 +157,7 @@ def source_record(root: Path):
         # explicitly until the parent adds tracking exceptions, without scanning
         # input or toolchain trees. These small files remain part of the revision.
         helpers = [*root.joinpath("scripts").glob("*.py"), *root.joinpath("scripts/tests").glob("*.py"),
-                   root / "scripts/Workspace.ps1", root / "scripts/Test-Workspace.ps1"]
+                   root / "scripts/Workspace.ps1", root / "legacy/windows/scripts/Test-Workspace.ps1"]
         names = sorted(set(names) | {path.relative_to(root).as_posix() for path in helpers if path.is_file()})
         for name in names:
             relative = Path(name)

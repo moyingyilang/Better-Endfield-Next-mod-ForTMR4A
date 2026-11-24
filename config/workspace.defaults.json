@@ -51,7 +51,7 @@
       "voice_index": "resources/generated/voice/voice-catalog-index.json",
       "combat_dictionary": "resources/generated/combat/combat-dictionary.json",
       "web_combat_dictionary": "web/src/data/combat-dict.min.json",
-      "avatars": "native/modules/combat_stats/assets/avatars"
+      "avatars": "legacy/windows/native/modules/combat_stats/assets/avatars"
     },
     "memorypack_schema": "config/compatibility/combat_stats/1.6.3/memorypack-schema.json"
   },

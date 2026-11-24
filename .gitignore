@@ -148,6 +148,9 @@ __pycache__/
 # Retired 2.x archives (IL2CPP dumps, animation clips, extracted tables) stay on
 # disk as reference material but are not distribution content.
 /legacy/
+# ForTMR4A: Windows 资产归档为可追踪参考，不参与构建。
+!/legacy/
+!/legacy/windows/**
 
 # Workspace maintenance entry points and suite metadata.
 !scripts/workspace_config.py

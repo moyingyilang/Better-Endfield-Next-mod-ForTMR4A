@@ -132,7 +132,7 @@ def stage(destination, with_cli=True):
     size = stage_cli(destination)
     if size is None:
         raise SystemExit(
-            'no CLI source tree found; run scripts/BuildBemCliAndroid.ps1 first '
+            'no CLI source tree found; run legacy/windows/scripts/BuildBemCliAndroid.ps1 first '
             '(it produces the Python tree both platforms use), or pass --no-cli'
         )
     return {'python': size}

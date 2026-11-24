@@ -11,7 +11,7 @@ class NextIdentityTests(unittest.TestCase):
             with self.subTest(source=item['source']):
                 content=(archive/item['archive']).read_bytes()
                 self.assertEqual(hashlib.sha256(content).hexdigest(),item['sha256'])
-        for relative in ['native/CMakeLists.txt','android/app/src/main/cpp/CMakeLists.txt','ui/BetterEndfieldNext.UI/BetterEndfieldNext.UI.csproj']:
+        for relative in ['legacy/windows/native/CMakeLists.txt','android/app/src/main/cpp/CMakeLists.txt','legacy/windows/ui/BetterEndfieldNext.UI/BetterEndfieldNext.UI.csproj']:
             self.assertNotIn('retired-before-next',(ROOT/relative).read_text(encoding='utf-8'))
         self.assertFalse((ROOT/'native/modules/camera/first_person_runtime.inc').exists())
 
@@ -34,7 +34,7 @@ class NextIdentityTests(unittest.TestCase):
         self.assertEqual(manifest.find('application/provider').get(ns+'authorities'),package+'.overlay.settings')
 
     def test_windows_module_descriptors_match_new_exports(self):
-        cmake=(ROOT/'native/CMakeLists.txt').read_text(encoding='utf-8')
+        cmake=(ROOT/'legacy/windows/native/CMakeLists.txt').read_text(encoding='utf-8')
         for descriptor in (ROOT/'native/modules').glob('*/*.module.ini'):
             fields=dict(line.split('=',1) for line in descriptor.read_text(encoding='utf-8').splitlines() if '=' in line)
             with self.subTest(module=fields['id']):
@@ -46,7 +46,7 @@ class NextIdentityTests(unittest.TestCase):
     def test_third_party_runtime_removed_and_workshop_retained(self):
         main=(ROOT/'android/app/src/main/java/dev/betterendfield/next/MainActivity.java').read_text(encoding='utf-8')
         self.assertNotIn('ThirdPartyModulesActivity.class',main)
-        ui=ET.parse(ROOT/'ui/BetterEndfieldNext.UI/MainWindow.xaml')
+        ui=ET.parse(ROOT/'legacy/windows/ui/BetterEndfieldNext.UI/MainWindow.xaml')
         tag='{http://schemas.microsoft.com/winfx/2006/xaml}Name'
         self.assertFalse(any(node.get(tag)=='ThirdPartyModulesNavigationItem' for node in ui.iter()))
         self.assertTrue(any(node.get(tag)=='WorkshopNavigationItem' for node in ui.iter()))
@@ -60,7 +60,7 @@ class NextIdentityTests(unittest.TestCase):
         self.assertNotIn('ThirdPartyHost',bridge)
         self.assertNotIn('updateThirdPartyRuntime',bridge)
         self.assertNotIn('THIRD_PARTY_INDEX',bridge)
-        for relative in ('native/CMakeLists.txt','android/app/src/main/cpp/CMakeLists.txt'):
+        for relative in ('legacy/windows/native/CMakeLists.txt','android/app/src/main/cpp/CMakeLists.txt'):
             self.assertNotIn('third_party_modules',(ROOT/relative).read_text(encoding='utf-8'))
         configs=(ROOT/'android/app/src/main/java/dev/betterendfield/next/ModuleConfigurations.java').read_text(encoding='utf-8')
         self.assertNotIn('thirdParty',configs)

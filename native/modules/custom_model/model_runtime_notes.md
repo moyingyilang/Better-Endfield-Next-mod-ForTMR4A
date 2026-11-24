@@ -1,6 +1,6 @@
 # Runtime B handoff — 2026-10-03
 
-Owned edits: `module.cpp`, `native/tests/custom_model_binding_tests.cpp`,
+Owned edits: `module.cpp`, `legacy/windows/native/tests/custom_model_binding_tests.cpp`,
 `model_job_runtime.inc`, `model_asset_cache.inc`, `model_content_identity.h`,
 and this note. Existing edits were preserved. No APK build/install/game launch,
 branch, commit, push, clean or directory removal was performed.

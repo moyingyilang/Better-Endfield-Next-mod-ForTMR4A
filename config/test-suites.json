@@ -24,11 +24,11 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/official_launcher_tests.cpp",
+        "reference": "legacy/windows/native/tests/official_launcher_tests.cpp",
         "sources": [
-          "native/tests/official_launcher_tests.cpp",
-          "native/loaders/shared/official_launcher.cpp",
-          "native/loaders/shared/official_launcher.h"
+          "legacy/windows/native/tests/official_launcher_tests.cpp",
+          "legacy/windows/native/loaders/shared/official_launcher.cpp",
+          "legacy/windows/native/loaders/shared/official_launcher.h"
         ],
         "blocked_reason": "Build BetterEndfieldNext.OfficialLauncherTests explicitly and pass a disposable fixture directory; optional --verify-installed reads the local official signature without starting processes."
       },
@@ -57,12 +57,12 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "ui/tests/SteamIntegration/VerifyPublishedMetadata.ps1",
+        "reference": "legacy/windows/ui/tests/SteamIntegration/VerifyPublishedMetadata.ps1",
         "sources": [
-          "ui/tests/SteamIntegration/VerifyPublishedMetadata.ps1",
-          "ui/BetterEndfieldNext.UI/Services/SteamMetadata.cs",
-          "ui/BetterEndfieldNext.UI/Services/SteamIntegrationService.cs",
-          "ui/BetterEndfieldNext.UI/Services/SteamCompatibilityService.cs"
+          "legacy/windows/ui/tests/SteamIntegration/VerifyPublishedMetadata.ps1",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/SteamMetadata.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/SteamIntegrationService.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/SteamCompatibilityService.cs"
         ],
         "blocked_reason": "Requires the freshly published bundle extraction, its matching Obfuscar Mapping.txt, and explicit saved metadata path; invoke the script with these release-specific inputs."
       },
@@ -74,25 +74,40 @@
       "id": "media_screen.runtime",
       "module": "media_screen",
       "kind": "simulation",
-      "platform": ["Windows", "Android"],
-      "host_platform": ["Windows"],
-      "game_version": ["any"],
-      "input": {"id": "media-screen-fake-host", "type": "synthetic"},
-      "prerequisite": [{"type": "tool", "key": "tools.ctest"}],
+      "platform": [
+        "Windows",
+        "Android"
+      ],
+      "host_platform": [
+        "Windows"
+      ],
+      "game_version": [
+        "any"
+      ],
+      "input": {
+        "id": "media-screen-fake-host",
+        "type": "synthetic"
+      },
+      "prerequisite": [
+        {
+          "type": "tool",
+          "key": "tools.ctest"
+        }
+      ],
       "entry": {
         "type": "ctest",
         "cwd": ".",
         "sources": [
-          "native/tests/media_screen/CMakeLists.txt",
-          "native/tests/media_screen/media_screen_tests.cpp",
-          "native/tests/media_screen/capture_ipc_tests.cpp",
-          "native/tests/media_screen/window_input_tests.cpp",
-          "native/tests/media_screen/game_input_tests.cpp",
+          "legacy/windows/native/tests/media_screen/CMakeLists.txt",
+          "legacy/windows/native/tests/media_screen/media_screen_tests.cpp",
+          "legacy/windows/native/tests/media_screen/capture_ipc_tests.cpp",
+          "legacy/windows/native/tests/media_screen/window_input_tests.cpp",
+          "legacy/windows/native/tests/media_screen/game_input_tests.cpp",
           "native/modules/media_screen/module.cpp",
-            "native/modules/media_screen/window_control.h",
-            "native/modules/media_screen/receiver_inspection.h",
-            "native/modules/media_screen/desk_receivers.h",
-            "native/modules/media_screen/aspect_fit.h",
+          "native/modules/media_screen/window_control.h",
+          "native/modules/media_screen/receiver_inspection.h",
+          "native/modules/media_screen/desk_receivers.h",
+          "native/modules/media_screen/aspect_fit.h",
           "native/modules/media_screen/window_input.h",
           "native/modules/media_screen/control_input_shield.h",
           "native/modules/media_screen/game_input_client.h",
@@ -106,7 +121,7 @@
           "native/modules/media_screen/capture_ipc.h",
           "native/modules/media_screen/configuration.h",
           "native/modules/media_screen/output_limits.h",
-          "native/modules/music/bgm_pause.h",
+          "legacy/windows/native/modules/music/bgm_pause.h",
           "native/shared/include/BetterEndfieldNext/MusicControl.h",
           "native/modules/media_screen/file_reader.h",
           "native/modules/media_screen/image_header.h"
@@ -114,30 +129,42 @@
         "build_dir": "next/media-screen/tests",
         "configuration": "Release",
         "test_regex": "^media_screen(_capture_ipc|_window_input|_game_input)?$",
-        "artifacts": ["next/media-screen/tests/Release/media_screen_tests.exe", "next/media-screen/tests/Release/media_capture_ipc_tests.exe", "next/media-screen/tests/Release/media_window_input_tests.exe", "next/media-screen/tests/Release/media_game_input_tests.exe"],
+        "artifacts": [
+          "next/media-screen/tests/Release/media_screen_tests.exe",
+          "next/media-screen/tests/Release/media_capture_ipc_tests.exe",
+          "next/media-screen/tests/Release/media_window_input_tests.exe",
+          "next/media-screen/tests/Release/media_game_input_tests.exe"
+        ],
         "receipt": "tests/receipts/media_screen.runtime.json"
       },
       "status": "active",
       "replaced_by": null,
-          "purpose": "Manual activation/restoration, receiver lifecycle, video/audio pause, chords, original WndProc cursor mapping, BGM leases, IPC, ordinary app input, and isolated source-process Raw Input/DirectInput state, relative mouse, release and focus preservation. Tests game input shielding and exit key drain. Actual game compatibility requires separate source-engine/runtime verification."
+      "purpose": "Manual activation/restoration, receiver lifecycle, video/audio pause, chords, original WndProc cursor mapping, BGM leases, IPC, ordinary app input, and isolated source-process Raw Input/DirectInput state, relative mouse, release and focus preservation. Tests game input shielding and exit key drain. Actual game compatibility requires separate source-engine/runtime verification."
     },
     {
       "id": "media_screen.android_files",
       "module": "media_screen",
       "kind": "offline",
-      "platform": ["Android"],
-      "game_version": ["any"],
-      "input": {"id": "media-screen-synthetic-files", "type": "synthetic"},
+      "platform": [
+        "Android"
+      ],
+      "game_version": [
+        "any"
+      ],
+      "input": {
+        "id": "media-screen-synthetic-files",
+        "type": "synthetic"
+      },
       "prerequisite": [],
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/media_screen_android/Run.ps1",
+        "reference": "legacy/windows/native/tests/media_screen_android/Run.ps1",
         "sources": [
-          "native/tests/media_screen_android/Run.ps1",
-          "native/tests/media_screen_android/src/dev/betterendfield/next/MediaScreenFilesTest.java",
-          "native/tests/media_screen_android/stubs/android/content/Context.java",
-          "native/tests/media_screen_android/stubs/dev/betterendfield/next/BemInstalledResources.java",
+          "legacy/windows/native/tests/media_screen_android/Run.ps1",
+          "legacy/windows/native/tests/media_screen_android/src/dev/betterendfield/next/MediaScreenFilesTest.java",
+          "legacy/windows/native/tests/media_screen_android/stubs/android/content/Context.java",
+          "legacy/windows/native/tests/media_screen_android/stubs/dev/betterendfield/next/BemInstalledResources.java",
           "android/app/src/main/java/dev/betterendfield/next/MediaScreenFiles.java"
         ],
         "blocked_reason": "Run.ps1 compiles the production Java cache with host stubs and the local JSON jar; the shared runner does not compile JVM tests."
@@ -240,13 +267,13 @@
         "type": "native",
         "cwd": ".",
         "sources": [
-          "ui/tests/NextConfiguration/NextConfiguration.csproj",
-          "ui/tests/NextConfiguration/Program.cs",
-          "ui/BetterEndfieldNext.UI/Models/ModConfiguration.cs",
-          "ui/BetterEndfieldNext.UI/Models/MediaScreenConfiguration.cs",
-          "ui/BetterEndfieldNext.UI/Models/FreeCameraExtras.cs",
-          "ui/BetterEndfieldNext.UI/Services/LocalizationService.cs",
-          "ui/tests/NextConfiguration/PlatformStubs.cs"
+          "legacy/windows/ui/tests/NextConfiguration/NextConfiguration.csproj",
+          "legacy/windows/ui/tests/NextConfiguration/Program.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Models/ModConfiguration.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Models/MediaScreenConfiguration.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Models/FreeCameraExtras.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/LocalizationService.cs",
+          "legacy/windows/ui/tests/NextConfiguration/PlatformStubs.cs"
         ],
         "executable": "next/dotnet/NextConfiguration/AnyCPU/bin/Release/net9.0/NextConfiguration.exe",
         "artifacts": [
@@ -268,14 +295,29 @@
       "id": "resource.formats_1_6_3",
       "module": "resource",
       "kind": "offline",
-      "platform": ["Windows"],
-      "game_version": ["1.6.3"],
-      "input": {"id": "v5-pck-memorypack-fixtures", "type": "synthetic"},
-      "prerequisite": [{"type": "tool", "key": "tools.python"}],
+      "platform": [
+        "Windows"
+      ],
+      "game_version": [
+        "1.6.3"
+      ],
+      "input": {
+        "id": "v5-pck-memorypack-fixtures",
+        "type": "synthetic"
+      },
+      "prerequisite": [
+        {
+          "type": "tool",
+          "key": "tools.python"
+        }
+      ],
       "entry": {
         "type": "python_unittest",
         "cwd": ".",
-        "modules": ["scripts.tests.test_resource_format_versions", "tools.CombatDataExporter.test_memorypack_refs"],
+        "modules": [
+          "scripts.tests.test_resource_format_versions",
+          "tools.CombatDataExporter.test_memorypack_refs"
+        ],
         "sources": [
           "scripts/tests/test_resource_format_versions.py",
           "tools/CombatDataExporter/test_memorypack_refs.py",
@@ -347,13 +389,13 @@
         "type": "native",
         "cwd": ".",
         "sources": [
-          "ui/tests/ModelOverlaySettings/ModelOverlaySettings.csproj",
-          "ui/tests/ModelOverlaySettings/Program.cs",
-          "ui/tests/ModelOverlaySettings/VirtualKeyFixture.cs",
-          "ui/BetterEndfieldNext.UI/Services/BemRuntimeSettings.cs",
-          "ui/BetterEndfieldNext.UI/Services/HotkeyService.cs",
-          "ui/tests/ModelOverlaySettings/ServiceFixtures.cs",
-          "ui/BetterEndfieldNext.UI/Services/BemPackageService.cs"
+          "legacy/windows/ui/tests/ModelOverlaySettings/ModelOverlaySettings.csproj",
+          "legacy/windows/ui/tests/ModelOverlaySettings/Program.cs",
+          "legacy/windows/ui/tests/ModelOverlaySettings/VirtualKeyFixture.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/BemRuntimeSettings.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/HotkeyService.cs",
+          "legacy/windows/ui/tests/ModelOverlaySettings/ServiceFixtures.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/BemPackageService.cs"
         ],
         "executable": "dotnet/ModelOverlaySettings/AnyCPU/bin/Release/net9.0/ModelOverlaySettings.exe",
         "artifacts": [
@@ -435,7 +477,7 @@
         "type": "ctest",
         "cwd": ".",
         "sources": [
-          "native/tests/hook_chain/CMakeLists.txt"
+          "legacy/windows/native/tests/hook_chain/CMakeLists.txt"
         ],
         "build_dir": "tests/native/hook_chain",
         "configuration": "Release",
@@ -477,7 +519,7 @@
         "type": "ctest",
         "cwd": ".",
         "sources": [
-          "native/tests/camera_playback/CMakeLists.txt"
+          "legacy/windows/native/tests/camera_playback/CMakeLists.txt"
         ],
         "build_dir": "tests/native/camera_playback",
         "configuration": "Release",
@@ -529,7 +571,7 @@
         "type": "ctest",
         "cwd": ".",
         "sources": [
-          "native/tests/generic_model_matching/CMakeLists.txt"
+          "legacy/windows/native/tests/generic_model_matching/CMakeLists.txt"
         ],
         "build_dir": "tests/native/generic_model_matching",
         "configuration": "Release",
@@ -572,7 +614,7 @@
         "type": "ctest",
         "cwd": ".",
         "sources": [
-          "native/tests/async_loading/CMakeLists.txt"
+          "legacy/windows/native/tests/async_loading/CMakeLists.txt"
         ],
         "build_dir": "tests/native/async_loading",
         "configuration": "Release",
@@ -615,7 +657,7 @@
         "type": "ctest",
         "cwd": ".",
         "sources": [
-          "native/tests/async_loading/CMakeLists.txt"
+          "legacy/windows/native/tests/async_loading/CMakeLists.txt"
         ],
         "build_dir": "tests/native/async_loading",
         "configuration": "Release",
@@ -649,14 +691,14 @@
       "prerequisite": [
         {
           "type": "source",
-          "path": "native/tests/custom_model_binding_tests.cpp"
+          "path": "legacy/windows/native/tests/custom_model_binding_tests.cpp"
         }
       ],
       "entry": {
         "type": "native",
         "cwd": ".",
         "sources": [
-          "native/tests/custom_model_binding_tests.cpp"
+          "legacy/windows/native/tests/custom_model_binding_tests.cpp"
         ],
         "executable": "windows/win-x64/Release/native/Release/BetterEndfieldNext.CustomModelBindingTests.exe",
         "artifacts": [
@@ -690,15 +732,15 @@
       "prerequisite": [
         {
           "type": "source",
-          "path": "native/tests/custom_model_binding_tests.cpp"
+          "path": "legacy/windows/native/tests/custom_model_binding_tests.cpp"
         }
       ],
       "entry": {
         "type": "native",
         "cwd": ".",
         "sources": [
-          "native/tests/custom_model_binding_tests.cpp",
-          "native/tests/custom_model_clone_support_tests.inc",
+          "legacy/windows/native/tests/custom_model_binding_tests.cpp",
+          "legacy/windows/native/tests/custom_model_clone_support_tests.inc",
           "native/modules/custom_model/module.cpp",
           "native/modules/custom_model/model_clone_lineage.inc",
           "native/modules/custom_model/model_job_runtime.inc",
@@ -738,14 +780,14 @@
       "prerequisite": [
         {
           "type": "source",
-          "path": "native/tests/combat_semantics_tests.cpp"
+          "path": "legacy/windows/native/tests/combat_semantics_tests.cpp"
         }
       ],
       "entry": {
         "type": "native",
         "cwd": ".",
         "sources": [
-          "native/tests/combat_semantics_tests.cpp"
+          "legacy/windows/native/tests/combat_semantics_tests.cpp"
         ],
         "executable": "windows/win-x64/Release/native/Release/BetterEndfieldNext.CombatSemanticsTests.exe",
         "artifacts": [
@@ -1028,9 +1070,9 @@
         "type": "native",
         "cwd": ".",
         "sources": [
-          "ui/tests/ActionIniPreservation/ActionIniPreservation.csproj",
-          "ui/tests/ActionIniPreservation/Program.cs",
-          "ui/BetterEndfieldNext.UI/Services/ActionIniPreservation.cs"
+          "legacy/windows/ui/tests/ActionIniPreservation/ActionIniPreservation.csproj",
+          "legacy/windows/ui/tests/ActionIniPreservation/Program.cs",
+          "legacy/windows/ui/BetterEndfieldNext.UI/Services/ActionIniPreservation.cs"
         ],
         "executable": "next/dotnet/ActionIniPreservation/AnyCPU/bin/Release/net9.0/ActionIniPreservation.exe",
         "artifacts": [
@@ -1505,7 +1547,7 @@
           "character_presets_test"
         ],
         "sources": [
-          "native/tests/character_presets_test.py"
+          "legacy/windows/native/tests/character_presets_test.py"
         ]
       },
       "status": "active",
@@ -1535,9 +1577,9 @@
       "entry": {
         "type": "python_script",
         "cwd": ".",
-        "script": "native/tests/bem_import/manifest_test.py",
+        "script": "legacy/windows/native/tests/bem_import/manifest_test.py",
         "sources": [
-          "native/tests/bem_import/manifest_test.py"
+          "legacy/windows/native/tests/bem_import/manifest_test.py"
         ]
       },
       "status": "active",
@@ -1562,9 +1604,9 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/bem_import/run_state_tests.py",
+        "reference": "legacy/windows/native/tests/bem_import/run_state_tests.py",
         "sources": [
-          "native/tests/bem_import/run_state_tests.py"
+          "legacy/windows/native/tests/bem_import/run_state_tests.py"
         ],
         "blocked_reason": "Script compiles production Java and may download org.json. Runner does not compile/download; retain original host checks."
       },
@@ -1590,9 +1632,9 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/android_rebuild/run.sh",
+        "reference": "legacy/windows/native/tests/android_rebuild/run.sh",
         "sources": [
-          "native/tests/android_rebuild/run.sh"
+          "legacy/windows/native/tests/android_rebuild/run.sh"
         ],
         "blocked_reason": "Compiles C++/Java and checks production translation units; Linux toolchain precondition. Not executed by no-build runner."
       },
@@ -1626,9 +1668,9 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/android_mmd_audio/Run.ps1",
+        "reference": "legacy/windows/native/tests/android_mmd_audio/Run.ps1",
         "sources": [
-          "native/tests/android_mmd_audio/Run.ps1"
+          "legacy/windows/native/tests/android_mmd_audio/Run.ps1"
         ],
         "blocked_reason": "Existing AndroidMMD JVM audio harness compiles with javac. Register/reuse it; runner does not build."
       },
@@ -1660,9 +1702,9 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/android_mmd_import/Run.ps1",
+        "reference": "legacy/windows/native/tests/android_mmd_import/Run.ps1",
         "sources": [
-          "native/tests/android_mmd_import/Run.ps1"
+          "legacy/windows/native/tests/android_mmd_import/Run.ps1"
         ],
         "blocked_reason": "Existing AndroidMMD import harness compiles with javac and needs local Commons/XZ jars. No build/download in runner."
       },
@@ -1802,9 +1844,9 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/bem_ui_state/BemUiStateTests.csproj",
+        "reference": "legacy/windows/native/tests/bem_ui_state/BemUiStateTests.csproj",
         "sources": [
-          "native/tests/bem_ui_state/BemUiStateTests.csproj"
+          "legacy/windows/native/tests/bem_ui_state/BemUiStateTests.csproj"
         ],
         "blocked_reason": "Existing desktop package/report state harness requires dotnet compilation; retain production-linked tests, add launch adapter only after separate receipted build."
       },
@@ -1830,11 +1872,11 @@
       "entry": {
         "type": "catalog_only",
         "cwd": ".",
-        "reference": "native/tests/bem_import/run.sh",
+        "reference": "legacy/windows/native/tests/bem_import/run.sh",
         "sources": [
-          "native/tests/bem_import/run.sh",
-          "native/tests/bem_import/BemImportStreamTest.java",
-          "native/tests/bem_import/BemImportArchiveTest.java",
+          "legacy/windows/native/tests/bem_import/run.sh",
+          "legacy/windows/native/tests/bem_import/BemImportStreamTest.java",
+          "legacy/windows/native/tests/bem_import/BemImportArchiveTest.java",
           "android/app/src/main/java/dev/betterendfield/next/BemImportArchive.java",
           "android/app/src/main/java/dev/betterendfield/next/BemImportStream.java"
         ],
@@ -1877,7 +1919,7 @@
   "validation_catalog": [
     {
       "id": "async-local-ad_hoc",
-      "source": "native/tests/async_loading/README.md",
+      "source": "legacy/windows/native/tests/async_loading/README.md",
       "status": "replaced",
       "replaced_by": [
         "custom_model.core",
