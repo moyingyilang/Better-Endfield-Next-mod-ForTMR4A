@@ -125,7 +125,7 @@ ZIP 容器（§14）、JSON 重复键检测、流式读取（当前整文件读�
 | 指标 | 当前 |
 |---|---|
 | 业务链中的 Python 实现 | `tools/CustomModel` 89 文件 / 约 2.4 万行（BEM 相关），`scripts/` 生成器 |
-| 已迁到 CRX 的业务段 | 5 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR、统一入口、BEM ZIP、骨骼/材质映射） |
+| 已迁到 CRX 的业务段 | 5.5 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR、统一入口、BEM/普通 ZIP、骨骼/材质映射） |
 | 新增 Rust 叶子 | `native/mod`（mod.toml/IR 校验）、`native/bem`（BEM 读取/校验） |
 | 新增 C 主链路 | `efml4a_source`（资源源抽象，消费 ForTMR2 `lib/`） |
 | 新增 C++ 宿主适配 | `native/convert`（源探测/分发，C ABI 出边界） |

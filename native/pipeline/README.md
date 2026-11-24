@@ -33,7 +33,9 @@ int be_source_to_mod(const char *src, const char *catalog_dir,
   `skeleton.map` 与 `material.override`；EFMI/EFF 转换后也会转发同一个 catalog；
 - BEM 原生 ZIP 容器（`manifest.json` + `payloads/NNNN.bin`，可被单一顶层目录包裹）由 `be-ir`
   内部解包，再走同一条 IR 链；
-- 普通 mod ZIP（EFMI/EFF 压缩包）暂不支持：先解包成目录再传。
+- 普通 ZIP（EFMI/EFF 压缩包）也支持：先尝试 BEM 原生容器；不是则解包到
+  `<out>/.be-source-unpacked`（容忍单一顶层目录），按解包后的实际格式继续转换，完成后清理；
+- 解包会拒绝绝对路径与 `..` 分量。
 
 ## 宿主 CLI
 

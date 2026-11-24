@@ -27,6 +27,10 @@ int32_t be_ir_convert_bem(const char *bem_path, const char *out_dir,
 int32_t be_ir_convert_bem_zip(const char *zip_path, const char *out_dir,
                               char *err, uint32_t err_cap);
 
+/* 解压普通 ZIP 到目录（拒绝绝对路径/..），供 EFMI/EFF 压缩包先解包。 */
+int32_t be_zip_extract(const char *zip_path, const char *dest_dir,
+                       char *err, uint32_t err_cap);
+
 /* 同上，但用 BEN catalog 补 skeleton.map / material.override。 */
 int32_t be_ir_convert_bem_with_catalog(const char *bem_path, const char *catalog_dir,
                                        const char *out_dir, char *err, uint32_t err_cap);

@@ -233,6 +233,8 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
 - **切片 2 语义补全**：传入 BEN catalog 时自动生成 `[[skeleton.map]]` 与 `[[material.override]]`
   （EFF `lvtsfw`：skeleton 1 / material 2；EFMI `edmin_maid`：skeleton 1 / material 7）；
   仍缺 bindpose、shader/关键字、形态键与驱动器。
+- **ZIP 全覆盖**：统一入口同时支持 BEM 原生容器与普通 EFMI/EFF 压缩包（解包→按实际格式转换→清理），
+  实测 `edmin_maid.zip`、`lvtsfw-mod.zip` 均通过 `efml validate`。
 
 ### 待办（P3 剩余）
 

@@ -1080,6 +1080,77 @@ pub unsafe extern "C" fn be_ir_convert_bem_zip_with_catalog(
     }
 }
 
+/// 解压普通 ZIP 到目录（供 EFMI/EFF 压缩包先解包再转换）。
+///
+/// 拒绝绝对路径与 `..` 分量，避免越出目标目录。
+///
+/// # Safety
+/// 参数规则同 [`be_ir_convert_bem`]。
+#[no_mangle]
+pub unsafe extern "C" fn be_zip_extract(
+    zip_path: *const c_char,
+    dest_dir: *const c_char,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if zip_path.is_null() || dest_dir.is_null() {
+        write_buf(err, err_cap, "zip_path/dest_dir is null");
+        return BE_IR_BAD_ARG;
+    }
+    let (src, dst) = match (CStr::from_ptr(zip_path).to_str(), CStr::from_ptr(dest_dir).to_str()) {
+        (Ok(src), Ok(dst)) => (src, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_IR_BAD_ARG;
+        }
+    };
+    match extract_zip(src, Path::new(dst)) {
+        Ok(()) => BE_IR_OK,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            BE_IR_INVALID
+        }
+    }
+}
+
+fn extract_zip(zip_path: &str, dest: &Path) -> Result<(), Error> {
+    use std::io::Read;
+    use zip::ZipArchive;
+
+    let file = fs::File::open(zip_path)?;
+    let mut archive =
+        ZipArchive::new(file).map_err(|e| Error::Ir(format!("ZIP 打开失败：{e}")))?;
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|e| Error::Ir(format!("ZIP 条目读取失败：{e}")))?;
+        let raw_name = entry.name().to_string();
+        let normalized = raw_name.replace('\\', "/");
+        let mut parts = Vec::new();
+        for part in normalized.split('/') {
+            match part {
+                "" | "." => continue,
+                ".." => return Err(Error::Ir(format!("ZIP 路径越界：{raw_name}"))),
+                other => parts.push(other),
+            }
+        }
+        if parts.is_empty() {
+            continue;
+        }
+        let target = parts.iter().fold(dest.to_path_buf(), |path, part| path.join(part));
+        if entry.is_dir() {
+            fs::create_dir_all(&target)?;
+            continue;
+        }
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut out = fs::File::create(&target)?;
+        std::io::copy(&mut entry, &mut out)?;
+    }
+    Ok(())
+}
+
 #[no_mangle]
 pub extern "C" fn be_ir_abi_version() -> u32 {
     BE_IR_ABI_VERSION
