@@ -140,6 +140,7 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 | `ui-kit/` | **Endfield UI X** 设计令牌与 Android 资源（`docs/ui/ENDFIELD-UI-X.md`） |
 | `termux/` | Termux 构建链（改编自 JMNeXt builders，MPL-2.0） |
 | `native/mod/`、`native/bem/`、`native/convert/` | ForTMR2 `efml-core` 的 C ABI 桥、BEM 读取/校验、EFMI/EFF3→BEM 进程内转换 |
+| `native/ir/` | BEM → ForTMR2 `mod.toml`/IR 转换（Rust 叶子，C ABI） |
 | `third_party/Converter4BENeXt/` | vendored 转换器（AGPL，含 C ABI 与静态库目标） |
 | `third_party/ForTMR2/` | ForTMR2 submodule（固定 commit） |
 

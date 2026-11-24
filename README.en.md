@@ -138,6 +138,7 @@ Windows stores its main configuration at `%LocalAppData%\BetterEndfieldNext\Bett
 | `ui-kit/` | **Endfield UI X** design tokens and Android resources (`docs/ui/ENDFIELD-UI-X.md`) |
 | `termux/` | Termux build chain (adapted from JMNeXt builders, MPL-2.0) |
 | `native/mod/`, `native/bem/`, `native/convert/` | C ABI bridge over ForTMR2 `efml-core`, BEM reader/validator, and in-process EFMI/EFF3 → BEM conversion |
+| `native/ir/` | BEM → ForTMR2 `mod.toml`/IR converter (Rust leaf, C ABI) |
 | `third_party/Converter4BENeXt/` | Vendored converter (AGPL, with C ABI and static-library target) |
 | `third_party/ForTMR2/` | ForTMR2 submodule (pinned commit) |
 

@@ -27,7 +27,7 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 | 1 | **BEM 包读取/校验**（导入第一关） | Python `tools/CustomModel/bem_v*.py`（写入/校验参考） + C++ `native/modules/custom_model/bem.cpp` | **Rust 叶子** `native/bem` + C ABI `BemPackage.h` | ✅ 切片 1：容器/结构/payload 引用/长度自洽 + zstd 解压校验 |
 | 1b | **多格式源接入 + 实时转换**（BEM / EFMI / EFF3 / mod.toml） | Converter4BENeXt（C++17，外部 CLI）+ Python 工具链 | **C++ 宿主** `native/convert`（vendored converter，C ABI）+ C 探测/分发 | ✅ 切片 2（本次）：进程内转换，BEM 主线不变 |
 | 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | 🟡 切片 2 进行中：写入器/repack 完成（raw，读→写逐字节一致）；合成/材质/驱动器待做 |
-| 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ⏳ 切片 3 |
+| 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ✅ 切片 3（本次）：`native/ir`，生成后用 efml-core 自校验 |
 | 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | ⏳ 切片 4 |
 | 5 | 安装/更新/回退状态机 | Java `BemInstaller` / `MmdInstaller` + Python 生成脚本 | **C 主链路** + Java 只做 UI/框架调用 | ⏳ 切片 5 |
 | 6 | 模块配置分发与解析 | Java `ModuleConfigurations` → C++ 模块文本解析 | C 主链路（统一配置格式）+ C++ 宿主 | ⏳ 切片 6 |
@@ -54,6 +54,18 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 - 8 项 `cargo test` 通过（新增 3 项：写入后重开、夹具 repack 往返、非法 manifest 拒绝）；
 - 实测 26 MB EFF 转换产物 repack 后与输入**逐字节一致**，`validate` 通过；
   这给“读→改→写”与后续 BEM→IR 提供统一出口。
+
+## 2d. 切片 3 交付物：BEM → mod.toml/IR（本次）
+
+- `native/ir`（`be-ir`，Rust 叶子，依赖 `efml-core` + `be-bem`）：
+  - 3 条 BEM 顶点流（position/normal/tangent、uv/color、skin）交错为 IR 顶点缓冲；
+  - BEM 网格级/按 draw 的索引 → IR 子网格；
+  - 贴图 payload 落盘 + Unity TextureFormat → IR 格式提示；
+  - 识别策略：网格用 `vertex-signature`（stride + 语义组合），贴图用 `asset-path`（`original_name`）；
+  - BEM 特有信息写 `[ext.ben.*]`（外观数、骨骼数、源包 id、BEM 版本），`efml-core` 忽略；
+  - 生成后调用 `efml-core` 的 `ModPackage::open + validate` 自校验，不合法不产出；
+  - C ABI `be_ir_convert_bem`；CLI `be-ir convert`。
+- 未映射（留后续）：骨骼 bindpose、材质槽名/关键字覆盖、形态键、驱动器、1.4 多资源目标。
 
 ## 3. 切片 1 交付物
 
@@ -83,7 +95,7 @@ ZIP 容器（§14）、JSON 重复键检测、流式读取（当前整文件读�
 | 指标 | 当前 |
 |---|---|
 | 业务链中的 Python 实现 | `tools/CustomModel` 89 文件 / 约 2.4 万行（BEM 相关），`scripts/` 生成器 |
-| 已迁到 CRX 的业务段 | 2.5 / 10（BEM 读/写/校验、多格式源接入/实时转换） |
+| 已迁到 CRX 的业务段 | 3.5 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR） |
 | 新增 Rust 叶子 | `native/mod`（mod.toml/IR 校验）、`native/bem`（BEM 读取/校验） |
 | 新增 C 主链路 | `efml4a_source`（资源源抽象，消费 ForTMR2 `lib/`） |
 | 新增 C++ 宿主适配 | `native/convert`（源探测/分发，C ABI 出边界） |

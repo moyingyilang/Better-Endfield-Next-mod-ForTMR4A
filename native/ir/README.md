@@ -1,0 +1,34 @@
+# native/ir —— BEM → ForTMR2 mod.toml/IR（CRX 叶子）
+
+BEN 的创作物格式（BEM）与 ForTMR2 运行时格式（`mod.toml` + IR）之间的结构转换。
+BEM 不淘汰：本 crate 只做“BEM → IR”的单向转换，BEM 读取/写入/校验仍在 `native/bem`。
+
+## 映射
+
+| BEM | IR |
+|---|---|
+| `meshes[].streams[3]`（顶点流） | 交错为单顶点缓冲 `mesh/N.vertex.bin` + `[[mesh.replace.vertex_layout]]` |
+| `meshes[].attributes [sem,fmt,dim,stream,offset]` | 合并偏移后的 `attributes[]`（语义名 + 顶点格式名 + location） |
+| `meshes[].indices` / `draws[].indices` | `[[mesh.replace.submeshes]]`（`index_format` = U16/U32） |
+| `meshes[]` 的顶点签名 | `identify = { kind = "vertex-signature", stride, attributes }` |
+| `textures[]`（payload + original_name + format + srgb） | `[[texture.replace]]`，`identify = { kind = "asset-path", path = original_name }` |
+| `appearances` / `bones` / 能力 / BEM 版本 | `[ext.ben.*]`（`efml-core` 忽略未知字段） |
+
+**未映射**：骨骼 bindpose、材质槽名与关键字覆盖、形态键（BEM 1.3 形变参数）、
+1.5 驱动器、1.4 多资源目标。这些需要游戏 catalog 知识，留给后续切片。
+
+## 用法
+
+```bash
+cd native/ir
+cargo test
+cargo run --bin be-ir -- convert <in.bem> <out-dir> [--json]
+```
+
+C ABI：`native/shared/include/BetterEndfieldNext/IrConvert.h`（`be_ir_convert_bem`）。
+Android 可选开关：`-DBETTER_ENDFIELD_NEXT_IR_RUST=ON`。
+
+## 自校验
+
+转换最后一步用 `efml_core::ModPackage::open + validate` 检查产物；失败直接返回错误，
+不产出半成品。`efml validate <out-dir>` 可独立复验。

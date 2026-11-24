@@ -224,6 +224,8 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   Converter4BENeXt 分支 `agent/crx-lib-api`，commit `6fcd24f`）。
 - **切片 2 进行中**：`native/bem` 增加 BEM 写入/repack（raw payload，C ABI `be_bem_repack`），
   26 MB EFF 产物 repack 后逐字节一致；合成/材质/驱动器语义仍待迁移。
+- **切片 3 完成**：`native/ir`（`be-ir`）把 BEM 转成 ForTMR2 `mod.toml`/IR，
+  生成后用 `efml-core` 自校验；Android 可选开关 `BETTER_ENDFIELD_NEXT_IR_RUST`。
 
 ### 待办（P3 剩余）
 

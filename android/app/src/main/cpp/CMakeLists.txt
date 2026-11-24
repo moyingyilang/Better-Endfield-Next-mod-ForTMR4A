@@ -246,3 +246,12 @@ if(BETTER_ENDFIELD_NEXT_CONVERT)
         "${CMAKE_CURRENT_BINARY_DIR}/be-convert")
     target_link_libraries(betterendfieldnext_android PRIVATE be_convert)
 endif()
+
+# ForTMR4A：BEM -> mod.toml/IR（Rust 叶子）。默认关闭。
+option(BETTER_ENDFIELD_NEXT_IR_RUST "Build and link BEM -> mod.toml/IR converter (be-ir)" OFF)
+if(BETTER_ENDFIELD_NEXT_IR_RUST)
+    add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/ir"
+        "${CMAKE_CURRENT_BINARY_DIR}/be-ir-rust")
+    target_link_libraries(betterendfieldnext_android PRIVATE be_ir)
+    add_dependencies(betterendfieldnext_android be_ir_rust)
+endif()
