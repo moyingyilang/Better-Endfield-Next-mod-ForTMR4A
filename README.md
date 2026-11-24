@@ -1,10 +1,14 @@
-# Better Endfield Next
+# Better Endfield Next mod ForTMR4A
 
 [简体中文](README.md) | [English](README.en.md)
 
-Better Endfield Next 是面向《明日方舟：终末地》的开源模块化工具，提供第三方角色模型、MMD 播放、相机和界面增强、按角色配音、开屏自定义，以及 PC 战斗统计和寻访记录管理。Windows 和 Android 共用主要原生功能源码；BEM 模型包和 MMD 作品可以跨端使用。
+> **本分支（ForTMR4A）平台范围**：仅支持 **Android**（arm64，LSPosed / libxposed API 102）；**Linux 仅作为开发与构建宿主**，不产出 Linux 运行时；**Windows 支持已移除**。`ui/`、`installer/`、`native/loaders/` 与 Windows 专用模块暂留作参考，不再参与构建。
+>
+> 本分支是 [ForTMR2](https://github.com/moyingyilang/ForTMR2) 的 mod 层：mod 清单与 IR 采用 ForTMR2 的 `mod.toml`（`efml-core`），资源读取采用 `lib/` 的 `efml4a_source` C 接口，渲染后端对接其 Vulkan 层；语言政策遵循 CRX（C 主链路 / Rust 叶子 / C++ 宿主）。集成与清退方案见 [FORTMR4A.md](docs/workspace/FORTMR4A.md)。
 
-[下载正式版](https://github.com/Dr-hydra/Better-Endfield/releases/latest) · [更新说明](CHANGELOG.md) · [Android 使用与构建](android/README.md) · [BEM 创作者指南](docs/custom_model/BEM_CREATOR_GUIDE.md) · [E Mod Loader](https://github.com/Dr-hydra/Endfield-Mod-Loader)
+Better Endfield Next mod ForTMR4A 是面向《明日方舟：终末地》Android 端的开源模块化工具，继承 Better Endfield Next 的 BEM 模型、MMD 播放、相机与界面增强、按角色配音、开屏自定义等能力。Android 是唯一产品平台；原 Windows 与 Android 共用的原生模块源码保留在 `native/modules/`，仅按 Android 目标编译。BEM/MMD 创作物的格式层将迁移为 ForTMR2 的 `mod.toml`/IR 转换器。
+
+[更新说明](CHANGELOG.md) · [Android 使用与构建](android/README.md) · [BEM 创作者指南](docs/custom_model/BEM_CREATOR_GUIDE.md) · [ForTMR2 公开基础设施](https://github.com/moyingyilang/ForTMR2) · [上游 Better Endfield](https://github.com/Dr-hydra/Better-Endfield)
 
 **第三方模块与第一人称已迁移至独立项目 [Endfield Mod Loader（E Mod Loader）](https://github.com/Dr-hydra/Endfield-Mod-Loader)。** EML **0.1.1-dev Windows 开发预览**现已提供 Windows 加载器、Android APK 和独立第一人称模块。**[下载 EML 与第一人称模块](https://github.com/Dr-hydra/Endfield-Mod-Loader/releases/latest)** · [第一人称使用说明](https://github.com/Dr-hydra/Endfield-Mod-Loader/blob/main/examples/first-person/README.md)。Windows、Android 的创意工坊入口继续保留；BE 的通用 Host、内置模块加载及共享 Hook 链继续维护。游戏及 Android 设备效果尚未实机验证。
 
@@ -17,7 +21,9 @@ Next 4.0.x 沿用现有安装身份。Next 使用新的安装身份、内部标�
 
 「支持」表示有对应实现和入口，不表示每个角色、作品、设备或游戏版本均经过实机验证。
 
-| 功能 | Windows x64 | Android ARM64 | 说明 |
+> **ForTMR4A 分支只维护 Android 列**；Windows 列与相关说明保留自上游，已不再支持或验证。
+
+| 功能 | Windows x64（已移除） | Android ARM64（唯一平台） | 说明 |
 | --- | --- | --- | --- |
 | 第三方模型（BEM） | 支持 | 支持 | 同一标准包；导入、更新、多包管理、按角色启用、外观与部件选项 |
 | BEM 1.4 资源与形态 | 支持（3.5.2） | 支持（3.5.2） | 显式资源目标、静态网格、LOD/平台声明；支持武器与大招资源，兼容 1.0–1.3 包 |
@@ -123,32 +129,24 @@ Windows 主配置位于 `%LocalAppData%\BetterEndfieldNext\BetterEndfieldNext.in
 
 | 目录 | 内容 |
 | --- | --- |
-| `ui/BetterEndfieldNext.UI/` | WinUI 桌面管理界面与资源 |
+| `ui/BetterEndfieldNext.UI/` | WinUI 桌面管理界面（Windows，已停用，仅参考） |
 | `native/modules/` | 模型、BEM、配音、音乐、战斗、界面、相机、动作与寻访模块 |
-| `native/shared/` | Host、公共 C ABI、平台兼容层与原生依赖 |
-| `native/loaders/` | Windows 内置注入器与 XInput 自启动代理 |
+| `native/shared/` | 公共 C ABI、Hook 链、`android_compat` 平台层与原生依赖 |
+| `native/loaders/` | Windows 注入器与 XInput 代理（已停用，仅参考） |
 | `android/` | Android 应用、框架入口、运行时与游戏内面板 |
 | `tools/CustomModel/` | BEM 导出、转换、校验、工程与角色资料工具 |
 | `manifests/`、`resources/` | 模型/动作/语音/战斗索引及生成输入 |
-| `web/` | 战斗与寻访的网页分析/分享相关源码 |
+| `web/` | 战斗与寻访网页分析（CRX 范围之外，待迁出或停用） |
 | `scripts/`、`docs/` | 构建和资源生成脚本、接口文档与研究记录 |
 
 内部运行时协议见 [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md)。研究目录和历史记录不代表全部已发布功能。
 
-## 从源码构建
+## 从源码构建（Linux 开发机 → Android 产物）
 
-Windows 需要 Visual Studio 2022 C++ 工具集、CMake、.NET SDK 9 和 PowerShell；构建安装程序另需 Inno Setup 6。BEM 工具构建依赖见 [`requirements-build.txt`](tools/CustomModel/requirements-build.txt)。
+本分支只在 Linux 宿主上构建 Android 产物，不再提供 Windows 构建链。需要 JDK 17+、Android SDK、NDK、CMake 与 Gradle，版本以 [`android/app/build.gradle.kts`](android/app/build.gradle.kts) 为准；资源包生成在迁移期可由 Python 完成，CRX 目标是由 Rust CLI 承担。
 
-```powershell
-pwsh -File .\scripts\BuildBetterEndfieldNext.ps1
-pwsh -File .\scripts\BuildInstaller.ps1
-pwsh -File .\scripts\BuildBemTools.ps1
-```
-
-Android 使用 JDK 17 及以上、SDK、NDK 和 CMake，版本以 [`android/app/build.gradle.kts`](android/app/build.gradle.kts) 为准；配置好工具链后：
-
-```powershell
-.\android\gradlew.bat -p android :app:assembleRelease --no-daemon
+```bash
+cd android && ./gradlew :app:assembleRelease --no-daemon
 ```
 
 构建脚本使用仓库内已生成的资源索引；游戏更新后需先更新相应资料，不应把本机研究输出或游戏资源载荷打入发布包。

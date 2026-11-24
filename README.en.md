@@ -1,10 +1,14 @@
-# Better Endfield Next
+# Better Endfield Next mod ForTMR4A
 
 [English](README.en.md) | [简体中文](README.md)
 
-Better Endfield Next is an open-source modular toolkit for *Arknights: Endfield*. It provides third-party character models, MMD playback, camera and UI controls, per-character voice languages, title-screen customization, and PC combat/gacha tools. Windows and Android share the main native feature sources; standard BEM model packages and MMD works can be used on both platforms.
+> **Platform scope of this branch (ForTMR4A)**: **Android only** (arm64, LSPosed / libxposed API 102). **Linux is a development/build host only** and produces no Linux runtime. **Windows support has been removed**; `ui/`, `installer/`, `native/loaders/` and the Windows-only modules are kept for reference and are no longer built.
+>
+> This branch is the mod layer for [ForTMR2](https://github.com/moyingyilang/ForTMR2): mod manifests and IR use ForTMR2's `mod.toml` (`efml-core`), resource access uses the `efml4a_source` C interface from `lib/`, and the render backend maps to its Vulkan layer. The language policy follows CRX (C main line / Rust leaves / C++ host). See [FORTMR4A.md](docs/workspace/FORTMR4A.md).
 
-[Download](https://github.com/Dr-hydra/Better-Endfield/releases/latest) · [Release notes](CHANGELOG.md) · [Android setup/build guide](android/README.md) · [BEM creator guide](docs/custom_model/BEM_CREATOR_GUIDE.en.md) · [E Mod Loader](https://github.com/Dr-hydra/Endfield-Mod-Loader)
+Better Endfield Next mod ForTMR4A is an open-source modular toolkit for the Android client of *Arknights: Endfield*, inheriting BEM models, MMD playback, camera and UI enhancements, per-character voice languages and title-screen customization from Better Endfield Next. Android is the only product platform; native module sources shared with the former Windows build stay under `native/modules/` and are built for Android only. The format layer for BEM/MMD content will migrate to ForTMR2's `mod.toml`/IR converter.
+
+[Release notes](CHANGELOG.md) · [Android setup/build guide](android/README.md) · [BEM creator guide](docs/custom_model/BEM_CREATOR_GUIDE.en.md) · [ForTMR2 public infrastructure](https://github.com/moyingyilang/ForTMR2) · [Upstream Better Endfield](https://github.com/Dr-hydra/Better-Endfield)
 
 **Third-party modules and first person have moved to [Endfield Mod Loader (E Mod Loader)](https://github.com/Dr-hydra/Endfield-Mod-Loader).** The **0.1.1-dev Windows preview** includes the Windows loader, Android APK and a standalone first-person module. **[Download EML and the first-person module](https://github.com/Dr-hydra/Endfield-Mod-Loader/releases/latest)** · [First-person guide](https://github.com/Dr-hydra/Endfield-Mod-Loader/blob/main/examples/first-person/README.md). Workshop entries on both platforms remain available; BE continues to maintain its general Host, built-in module loading and shared Hook chains. Gameplay and Android device behavior have not been tested.
 
@@ -17,7 +21,9 @@ Next 4.0.x retains its installation identity. Next is an independent installatio
 
 Supported means an implementation and controls exist; it does not mean every character, work, device or game version has been tested in game.
 
-| Feature | Windows x64 | Android ARM64 | Details |
+> **ForTMR4A maintains the Android column only.** The Windows column and related notes are inherited from upstream and are no longer supported or verified.
+
+| Feature | Windows x64 (removed) | Android ARM64 (only platform) | Details |
 | --- | --- | --- | --- |
 | Third-party models (BEM) | Supported | Supported | Same standard package; import/update, multiple installed packages, per-character activation, appearance and component options |
 | BEM 1.4 resources and forms | Supported (3.5.2) | Supported (3.5.2) | Explicit resource targets, static meshes and LOD/platform declarations; weapons and ultimate-form resources, with 1.0–1.3 compatibility |
@@ -121,32 +127,24 @@ Windows stores its main configuration at `%LocalAppData%\BetterEndfieldNext\Bett
 
 | Directory | Contents |
 | --- | --- |
-| `ui/BetterEndfieldNext.UI/` | WinUI desktop controller and assets |
+| `ui/BetterEndfieldNext.UI/` | WinUI desktop controller and assets (Windows, retired, reference only) |
 | `native/modules/` | Model, BEM, voice, music, combat, UI, camera, actions and gacha modules |
-| `native/shared/` | Host, public C ABI, platform compatibility and native dependencies |
-| `native/loaders/` | Windows injector and XInput proxy |
+| `native/shared/` | Public C ABI, hook chain, `android_compat` platform layer and native deps |
+| `native/loaders/` | Windows injector and XInput proxy (retired, reference only) |
 | `android/` | Android app, framework entry, runtime and in-game deck |
 | `tools/CustomModel/` | BEM exports, conversion, validation, projects and character profiles |
 | `manifests/`, `resources/` | Model/action/voice/combat indexes and generation inputs |
-| `web/` | Combat/gacha web-analysis and sharing sources |
+| `web/` | Combat/gacha web analysis (outside CRX scope, to be moved out or retired) |
 | `scripts/`, `docs/` | Build/resource scripts, interfaces and research records |
 
 See [GAME_INTERFACES.md](docs/host/GAME_INTERFACES.md) for internal protocols. Research directories and historical records do not represent shipped features.
 
-## Build from source
+## Build from source (Linux host -> Android artifact)
 
-Windows requires Visual Studio 2022 C++ tools, CMake, .NET SDK 9 and PowerShell; installer packaging also requires Inno Setup 6. BEM tool build dependencies are in [`requirements-build.txt`](tools/CustomModel/requirements-build.txt).
+This branch builds Android artifacts on a Linux host and no longer ships a Windows build chain. It requires JDK 17+, Android SDK, NDK, CMake and Gradle; use the versions declared in [`android/app/build.gradle.kts`](android/app/build.gradle.kts). Resource-pack generation is done by Python during the migration window; the CRX target is a Rust CLI.
 
-```powershell
-pwsh -File .\scripts\BuildBetterEndfieldNext.ps1
-pwsh -File .\scripts\BuildInstaller.ps1
-pwsh -File .\scripts\BuildBemTools.ps1
-```
-
-Android requires JDK 17+, SDK, NDK and CMake; use the versions declared in [`android/app/build.gradle.kts`](android/app/build.gradle.kts). With the toolchain configured:
-
-```powershell
-.\android\gradlew.bat -p android :app:assembleRelease --no-daemon
+```bash
+cd android && ./gradlew :app:assembleRelease --no-daemon
 ```
 
 Build scripts consume generated repository indexes. Refresh affected data after game updates; local research outputs and original game payloads must not be packaged as release assets.

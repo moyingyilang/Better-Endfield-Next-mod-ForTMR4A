@@ -17,6 +17,10 @@
 | 网页与后端 | [web](web/INDEX.md) |
 | 工作区与发布记录 | [workspace](workspace/INDEX.md) |
 
+## 分支与平台
+
+- [ForTMR4A 平台收敛与 ForTMR2 集成方案](workspace/FORTMR4A.md)：Android 为唯一产品平台，Linux 仅作构建宿主，Windows 已移除；mod 格式对接 ForTMR2 的 `mod.toml`/IR 与 `efml4a_source`。
+
 ## 清单与引用
 
 - [文档用途、状态、版本与来源清单](../config/document-catalog.json)
