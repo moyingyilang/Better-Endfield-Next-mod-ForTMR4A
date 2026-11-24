@@ -235,6 +235,9 @@ CRX = **C 主链路 / Rust 叶子 / C++ 宿主**，禁止 Python / JavaScript �
   仍缺 bindpose、shader/关键字、形态键与驱动器。
 - **ZIP 全覆盖**：统一入口同时支持 BEM 原生容器与普通 EFMI/EFF 压缩包（解包→按实际格式转换→清理），
   实测 `edmin_maid.zip`、`lvtsfw-mod.zip` 均通过 `efml validate`。
+- **切片 2 继续**：`be-ir appearances` + `--appearance` 支持按外观转换；每个 mod 目录附带
+  `ext.ben.source.json`（原始 BEM manifest）保证 drivers/material_overrides/root_offset 不丢；
+  上游 Converter4BENeXt `56237e0` 修复 EFF/legacy 的 `.zip` 输出，submodule 已更新。
 - **BEM 写入补齐 zstd**：`be_bem_repack_ex` / `be-bem repack --zstd`，按“有收益才压缩”写 codec=1；
   实测 26.9 MB → 14.3 MB，压缩包继续可通过 `be-source` 转 mod 并 `efml validate`。
 

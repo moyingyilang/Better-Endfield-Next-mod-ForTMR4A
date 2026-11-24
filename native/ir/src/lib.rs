@@ -144,6 +144,8 @@ pub struct Options {
     pub hot_reload: bool,
     /// 可选 BEN catalog 目录（`tools/CustomModel/catalog`）；用于骨骼/材质/对象路径。
     pub catalog_dir: Option<std::path::PathBuf>,
+    /// 可选外观 id；指定时只转换该外观下 `replace` 的网格（BEM appearances）。
+    pub appearance: Option<String>,
 }
 
 impl Default for Options {
@@ -155,6 +157,7 @@ impl Default for Options {
             abi: Some("arm64-v8a".into()),
             hot_reload: true,
             catalog_dir: None,
+            appearance: None,
         }
     }
 }
@@ -164,6 +167,7 @@ impl Default for Options {
 pub struct Report {
     pub mod_id: String,
     pub mod_dir: String,
+    pub appearance: Option<String>,
     pub meshes: usize,
     pub submeshes: usize,
     pub textures: usize,
@@ -186,6 +190,66 @@ pub enum Error {
     Ir(String),
     #[error("产物自校验失败：{0}")]
     Validate(String),
+}
+
+/// 一个 BEM 外观的摘要（用于 CLI `appearances` 与选择转换目标）。
+#[derive(Debug, Clone, Serialize)]
+pub struct AppearanceInfo {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+    pub replace_components: usize,
+    pub hide_components: usize,
+    pub keep_components: usize,
+}
+
+/// 列出一个 BEM 包的外观（无 appearances 时返回空列表）。
+pub fn list_appearances(
+    bem_path: impl AsRef<Path>,
+) -> Result<(Option<String>, Vec<AppearanceInfo>), Error> {
+    let package = be_bem::BemPackage::open(bem_path.as_ref())?;
+    let manifest = &package.manifest;
+    let default_id = manifest
+        .get("default_appearance_id")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let mut items = Vec::new();
+    if let Some(appearances) = manifest.get("appearances").and_then(Value::as_array) {
+        for appearance in appearances {
+            let id = appearance
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let name = appearance
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or(&id)
+                .to_string();
+            let mut replace = 0;
+            let mut hide = 0;
+            let mut keep = 0;
+            if let Some(components) = appearance.get("components").and_then(Value::as_array) {
+                for component in components {
+                    match component.get("operation").and_then(Value::as_str).unwrap_or("") {
+                        "replace" => replace += 1,
+                        "hide" => hide += 1,
+                        "keep" => keep += 1,
+                        _ => {}
+                    }
+                }
+            }
+            items.push(AppearanceInfo {
+                is_default: default_id.as_deref() == Some(id.as_str()),
+                id,
+                name,
+                replace_components: replace,
+                hide_components: hide,
+                keep_components: keep,
+            });
+        }
+    }
+    Ok((default_id, items))
 }
 
 /// 转换入口：BEM → mod 包目录。
@@ -259,13 +323,20 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
     fs::create_dir_all(out_dir.join("mesh"))?;
     fs::create_dir_all(out_dir.join("texture"))?;
 
+    let selected_meshes = select_meshes(manifest, meshes, options.appearance.as_deref(), &mut warnings)?;
+    let filtered_meshes: Vec<&Value> = selected_meshes
+        .iter()
+        .map(|index| &meshes[*index])
+        .collect();
+
     let mut mesh_replace = Vec::new();
     let mut vertex_bytes = 0u64;
     let mut index_bytes = 0u64;
     let mut submesh_count = 0usize;
 
-    for (mesh_index, mesh) in meshes.iter().enumerate() {
-        let replaced = convert_mesh(bem, mesh, mesh_index, out_dir, options, catalog, &mut warnings)?;
+    for mesh_index in &selected_meshes {
+        let mesh = &meshes[*mesh_index];
+        let replaced = convert_mesh(bem, mesh, *mesh_index, out_dir, options, catalog, &mut warnings)?;
         vertex_bytes += replaced.vertex_bytes;
         index_bytes += replaced.index_bytes;
         submesh_count += replaced.submeshes;
@@ -299,8 +370,8 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
         });
     }
 
-    let skeleton = build_skeleton(catalog, meshes);
-    let material = build_materials(catalog, meshes, manifest, &mut warnings);
+    let skeleton = build_skeleton(catalog, &filtered_meshes);
+    let material = build_materials(catalog, &filtered_meshes, manifest, &mut warnings);
 
     let manifest_ir = ModIr {
         mesh: MeshSection { replace: mesh_replace },
@@ -361,15 +432,29 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
             toml_string(&catalog.character_id)
         ));
     }
+    toml_text.push_str(&format!(
+        "source_manifest = {}\n",
+        toml_string("ext.ben.source.json")
+    ));
+    if let Some(appearance) = &options.appearance {
+        toml_text.push_str(&format!("appearance = {}\n", toml_string(appearance)));
+    }
     toml_text.push_str(
         "note = \"bindposes / blendshapes / dynamic drivers are not converted yet\"\n",
     );
     fs::write(out_dir.join("mod.toml"), &toml_text)?;
 
+    // 无损保留 BEM 侧语义（appearances / drivers / material_overrides / root_offset 等）。
+    // IR 表达不了的部分不丢：写 sidecar，mod.toml 的 [ext.ben] 引用它。
+    let sidecar = "ext.ben.source.json";
+    fs::write(out_dir.join(sidecar), bem.manifest_bytes())?;
+
     // checksums.txt：按 efml-core 的 `<sha256>  <相对路径>` 格式生成，加载器可校验完整性。
     let mut checksum_lines = String::new();
     let mut checksums = Vec::new();
-    for relative in mod_manifest.referenced_files() {
+    let mut referenced_files = mod_manifest.referenced_files();
+    referenced_files.push(sidecar.to_string());
+    for relative in referenced_files {
         let path = out_dir.join(&relative);
         let digest = sha256_file(&path)?;
         checksums.push((relative, digest));
@@ -389,6 +474,7 @@ fn convert_package(bem: &be_bem::BemPackage, out_dir: &Path, options: &Options) 
     Ok(Report {
         mod_id,
         mod_dir: out_dir.display().to_string(),
+        appearance: options.appearance.clone(),
         meshes: meshes.len(),
         submeshes: submesh_count,
         textures: textures.len(),
@@ -615,7 +701,63 @@ fn toml_string(value: &str) -> String {
 
 
 
-fn build_skeleton(catalog: Option<&Catalog>, meshes: &[Value]) -> SkeletonSection {
+/// 选择要转换的网格：未指定外观时转换全部；指定时只取该外观 `replace` 的网格。
+fn select_meshes(
+    manifest: &Value,
+    meshes: &[Value],
+    requested: Option<&str>,
+    warnings: &mut Vec<String>,
+) -> Result<Vec<usize>, Error> {
+    let Some(requested) = requested else {
+        return Ok((0..meshes.len()).collect());
+    };
+    let appearances = manifest
+        .get("appearances")
+        .and_then(Value::as_array)
+        .ok_or_else(|| Error::Ir("该 BEM 没有 appearances，不能用 --appearance".into()))?;
+    let appearance = appearances
+        .iter()
+        .find(|appearance| appearance.get("id").and_then(Value::as_str) == Some(requested))
+        .ok_or_else(|| Error::Ir(format!("BEM 里没有外观 `{requested}`")))?;
+
+    let mut indices = BTreeSet::new();
+    if let Some(components) = appearance.get("components").and_then(Value::as_array) {
+        for component in components {
+            let operation = component
+                .get("operation")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            match operation {
+                "replace" => {
+                    if let Some(mesh) = component.get("mesh").and_then(Value::as_u64) {
+                        if (mesh as usize) < meshes.len() {
+                            indices.insert(mesh as usize);
+                        } else {
+                            warnings.push(format!(
+                                "外观 `{requested}` 引用了越界的 mesh {mesh}"
+                            ));
+                        }
+                    }
+                }
+                "hide" => warnings.push(format!(
+                    "外观 `{requested}` 含 hide 组件：IR 无法表达隐藏，已跳过"
+                )),
+                "keep" => {}
+                other => warnings.push(format!(
+                    "外观 `{requested}` 含未知 operation `{other}`，已跳过"
+                )),
+            }
+        }
+    }
+    if indices.is_empty() {
+        return Err(Error::Ir(format!(
+            "外观 `{requested}` 没有可替换的网格（全为 keep/hide）"
+        )));
+    }
+    Ok(indices.into_iter().collect())
+}
+
+fn build_skeleton(catalog: Option<&Catalog>, meshes: &[&Value]) -> SkeletonSection {
     let Some(catalog) = catalog else {
         return SkeletonSection::default();
     };
@@ -667,7 +809,7 @@ fn build_skeleton(catalog: Option<&Catalog>, meshes: &[Value]) -> SkeletonSectio
 
 fn build_materials(
     catalog: Option<&Catalog>,
-    meshes: &[Value],
+    meshes: &[&Value],
     manifest: &Value,
     warnings: &mut Vec<String>,
 ) -> MaterialSection {
@@ -1151,6 +1293,55 @@ fn extract_zip(zip_path: &str, dest: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+/// 指定外观的 BEM → mod 目录转换；`catalog_dir` 可为 NULL。
+///
+/// # Safety
+/// 参数规则同 [`be_ir_convert_bem`]。
+#[no_mangle]
+pub unsafe extern "C" fn be_ir_convert_bem_appearance(
+    bem_path: *const c_char,
+    catalog_dir: *const c_char,
+    appearance: *const c_char,
+    out_dir: *const c_char,
+    err: *mut c_char,
+    err_cap: usize,
+) -> i32 {
+    if bem_path.is_null() || appearance.is_null() || out_dir.is_null() {
+        write_buf(err, err_cap, "bem_path/appearance/out_dir is null");
+        return BE_IR_BAD_ARG;
+    }
+    let (src, appearance, dst) = match (
+        CStr::from_ptr(bem_path).to_str(),
+        CStr::from_ptr(appearance).to_str(),
+        CStr::from_ptr(out_dir).to_str(),
+    ) {
+        (Ok(src), Ok(appearance), Ok(dst)) => (src, appearance, dst),
+        _ => {
+            write_buf(err, err_cap, "path is not valid UTF-8");
+            return BE_IR_BAD_ARG;
+        }
+    };
+    let mut options = Options {
+        appearance: Some(appearance.to_string()),
+        ..Options::default()
+    };
+    if !catalog_dir.is_null() {
+        match CStr::from_ptr(catalog_dir).to_str() {
+            Ok(catalog) if !catalog.is_empty() => {
+                options.catalog_dir = Some(std::path::PathBuf::from(catalog));
+            }
+            _ => {}
+        }
+    }
+    match convert_bem_to_mod(src, dst, &options) {
+        Ok(_) => BE_IR_OK,
+        Err(cause) => {
+            write_buf(err, err_cap, &cause.to_string());
+            BE_IR_INVALID
+        }
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn be_ir_abi_version() -> u32 {
     BE_IR_ABI_VERSION
@@ -1179,6 +1370,36 @@ mod tests {
         assert_eq!(vertex_format_name(6, 4), "R8G8B8A8_UINT");
         assert_eq!(texture_format_name(25, true), "BC7_UNORM_SRGB");
         assert_eq!(texture_format_name(10, false), "BC1_UNORM");
+    }
+
+    #[test]
+    fn lists_and_filters_appearances() {
+        if !fixture().is_file() {
+            return;
+        }
+        let (default_id, items) = list_appearances(fixture()).expect("appearances");
+        assert_eq!(default_id.as_deref(), Some("default"));
+        assert!(items.iter().any(|item| item.id == "default" && item.replace_components == 1));
+        assert!(items.iter().any(|item| item.id == "hidden"));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let options = Options {
+            appearance: Some("default".into()),
+            ..Options::default()
+        };
+        let report = convert_bem_to_mod(fixture(), dir.path(), &options).expect("appearance convert");
+        assert_eq!(report.meshes, 1);
+        assert!(dir.path().join("ext.ben.source.json").is_file());
+        let toml = fs::read_to_string(dir.path().join("mod.toml")).expect("mod.toml");
+        assert!(toml.contains("source_manifest = \"ext.ben.source.json\""));
+        let sidecar = fs::read_to_string(dir.path().join("ext.ben.source.json")).expect("sidecar");
+        assert!(sidecar.contains("appearances"));
+
+        let hidden = Options {
+            appearance: Some("hidden".into()),
+            ..Options::default()
+        };
+        assert!(convert_bem_to_mod(fixture(), dir.path().join("hidden"), &hidden).is_err());
     }
 
     #[test]

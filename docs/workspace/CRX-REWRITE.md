@@ -27,7 +27,7 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 | 1 | **BEM 包读取/校验**（导入第一关） | Python `tools/CustomModel/bem_v*.py`（写入/校验参考） + C++ `native/modules/custom_model/bem.cpp` | **Rust 叶子** `native/bem` + C ABI `BemPackage.h` | ✅ 切片 1：容器/结构/payload 引用/长度自洽 + zstd 解压校验 |
 | 1b | **多格式源接入 + 实时转换**（BEM / EFMI / EFF3 / mod.toml） | Converter4BENeXt（C++17，submodule，pin `6fcd24f`）+ Python 工具链 | **C++ 宿主** `native/convert`（vendored converter，C ABI）+ C 探测/分发 | ✅ 切片 2：进程内转换，BEM 主线不变 |
 | 1c | **统一导入入口（编排）** | 无（此前要手动串转换器 + 工具） | **C 主链路** `native/pipeline`（`be_source_to_mod`） | ✅ 切片 3.5：源探测→转换→BEM→IR；含 BEM ZIP；JNI `BemConverter`（未设备验证） |
-| 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | 🟡 写入器/repack 完成；**catalog 驱动的 skeleton/material 映射已补**（无 bindpose/shader/驱动器） |
+| 2 | BEM 写入/合成（组合、材质、驱动器） | Python `bem_v1.py`、`bem_compose*.cpp` | Rust 叶子（与 1 同 crate）+ C 编排 | 🟡 写入/zstd/repack、catalog skeleton/material、**外观选择 + 无损 sidecar** 完成；驱动器仍在 sidecar（IR 无对应字段） |
 | 3 | BEM → `mod.toml`/IR 转换 | 尚无（P3） | Rust 叶子（依赖 `efml-core`）+ C 编排 | ✅ 切片 3（本次）：`native/ir`，生成后用 efml-core 自校验 |
 | 4 | 资源编解码（zstd / miniz / ASTC / BCn） | C（vendored）+ C++ 封装 | C 主链路 + Rust 叶子（新代码） | 🟡 BEM payload zstd **写入**完成（读早已支持）；ASTC/BCn 仍走原有 C 库 |
 | 5 | 安装/更新/回退状态机 | Java `BemInstaller` / `MmdInstaller` + Python 生成脚本 | **C 主链路** + Java 只做 UI/框架调用 | ⏳ 切片 5 |
@@ -97,6 +97,18 @@ BEM 读取/校验链（`native/bem`），再进入 IR/运行时。多格式只�
 - 实测：EFF `lvtsfw` → skeleton 1 / material 2；EFMI `edmin_maid` → skeleton 1 / material 7；
   两者 `efml validate` 均通过（余 2 条告警：asset-bundle 提示、license 建议）。
 
+## 2h. 追加：外观选择 + 无损 sidecar + 转换器 ZIP 修复（本次）
+
+- `be-ir appearances <bem>` 列出外观（id/默认/替换/隐藏/keep 计数）；`--appearance ID` 只转换该外观
+  的 `replace` 网格；来源含 hide-only 外观时明确报错而不是静默产出空包；
+- 每个 mod 目录写 `ext.ben.source.json`（原始 BEM manifest 原样保存），`mod.toml` 的
+  `[ext.ben] source_manifest` 引用它：appearances / drivers / material_overrides / root_offset
+  等 IR 表达不了的语义**不丢**，留给运行时/后续切片消费；
+- 上游 Converter4BENeXt 修复并合入 `56237e0`：EFF/legacy 输出尊重 `.zip`（此前总是写 BEM 二进制）；
+  本仓 submodule 随之更新到 `56237e0`；
+- 实测：fixture `--appearance default`、EFF `lvtsfw` → `.zip` → `be-ir convert-zip`
+  / 统一入口，均产出带 skeleton/material 的 mod 并通过 `efml validate`。
+
 ## 3. 切片 1 交付物
 
 - `native/bem/`（`be-bem`，Rust 叶子）：
@@ -125,7 +137,7 @@ ZIP 容器（§14）、JSON 重复键检测、流式读取（当前整文件读�
 | 指标 | 当前 |
 |---|---|
 | 业务链中的 Python 实现 | `tools/CustomModel` 89 文件 / 约 2.4 万行（BEM 相关），`scripts/` 生成器 |
-| 已迁到 CRX 的业务段 | 5.75 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR、统一入口、BEM/普通 ZIP、骨骼/材质映射） |
+| 已迁到 CRX 的业务段 | 6 / 10（BEM 读/写/校验、多格式源接入/实时转换、BEM→IR、统一入口、BEM/普通 ZIP、骨骼/材质映射） |
 | 新增 Rust 叶子 | `native/mod`（mod.toml/IR 校验）、`native/bem`（BEM 读取/校验） |
 | 新增 C 主链路 | `efml4a_source`（资源源抽象，消费 ForTMR2 `lib/`） |
 | 新增 C++ 宿主适配 | `native/convert`（源探测/分发，C ABI 出边界） |

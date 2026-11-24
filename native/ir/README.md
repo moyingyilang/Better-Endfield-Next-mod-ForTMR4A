@@ -34,12 +34,22 @@ BEM 不淘汰：本 crate 只做“BEM → IR”的单向转换，BEM 读取/写
 在内存中重封装成 BEM 然后复用同一条转换链。`format_version` 缺失时按字段推断 1.0–1.5。
 普通 mod ZIP（EFMI/EFF 压缩包）需要先解包，不在这一层处理。
 
+## 外观与无损 sidecar
+
+- `be-ir appearances <in.bem>`：列出 `appearances`（默认项、replace/hide/keep 计数）；
+- `--appearance <id>`：只转换该外观里 `replace` 的网格；含 hide 时给出告警，全为 keep/hide 时报错；
+- 输出目录总是附带 `ext.ben.source.json`：**原始 BEM manifest 原样保存**，
+  `mod.toml` 的 `[ext.ben] source_manifest` 引用它。appearances / drivers / material_overrides /
+  root_offset 等 IR 没有对应字段的语义不丢失，交给运行时或后续切片消费。
+
 ## 用法
 
 ```bash
 cd native/ir
 cargo test
-cargo run --bin be-ir -- convert <in.bem> <out-dir> [--json]
+cargo run --bin be-ir -- convert <in.bem> <out-dir> [--json] [--catalog DIR] [--appearance ID]
+cargo run --bin be-ir -- convert-zip <in.bem.zip> <out-dir> [--catalog DIR]
+cargo run --bin be-ir -- appearances <in.bem> [--json]
 ```
 
 C ABI：`native/shared/include/BetterEndfieldNext/IrConvert.h`（`be_ir_convert_bem`）。
