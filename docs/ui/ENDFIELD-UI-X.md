@@ -136,15 +136,15 @@ Android 资源：[`ui-kit/android/res/`](../ui-kit/android/res/)。
 游戏 UI 的**真实取色/字体/截图**可以用 ForTMR 主仓的 VFS 工具在本机取得，但**不能进仓库**：
 
 ```bash
-# 在 ForTMR 主仓（EFML4A）里构建纯 C 工具链
+# 在 ForTMR 主仓（EFML4A）里构建纯 C 工具链：6 组 / 33 子命令
 cd tools/vfs && make            # 或 make cli
-./cli/build/fortmr help         # 6 组 / 33 子命令
+./cli/build/fortmr help
 
 # 解析/抽取（输出只留在本机，勿提交）
-./cli/build/fortmr vfsfull  <game.blc>        # 列条目
-./cli/build/fortmr vfsfull  <game.blc> -x out # 按条目抽取
-./cli/build/fortmr dds2png  <tex.dds>         # BC7 → PNG
-./cli/build/fortmr imgtool  ...               # 缩放/裁切/取色
+./cli/build/fortmr blc info <game.blc>                    # 条目/结构（原 vfsfull）
+./cli/build/fortmr mem extract <src> <listfile> <outdir>  # 按 off/len/name 列表并行抽取
+./cli/build/fortmr tex dds2png <in.dds> <out.png>         # BC7 → PNG
+./cli/build/fortmr tex detect <in.png>                    # 检测主饱和色
 ```
 
 本仓库只保留**原创 SVG/PNG 预览**与**测量得到的颜色/字号**（数值本身不构成素材复制），
