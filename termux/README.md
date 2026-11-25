@@ -77,3 +77,67 @@ printf 'sdk.dir=%s\ncmake.dir=%s\n' "$HOME/android-sdk" "$PREFIX" > android/loca
   -PworkspaceConfig="$PWD/ci-workspace.json" \
   -Pandroid.aapt2FromMavenOverride="$PREFIX/bin/aapt2"
 ```
+
+## 本机构建（aarch64 Termux，opt-in）
+
+上面的替换项已经固化成一条可重复路径，**CI / x86_64 主机不受影响**（靠环境变量
+`BE_TERMUX_NDK` 启用）。2026-11-25 实测产出可安装的 debug APK。
+
+### 准备
+
+```bash
+# 1. 安装与项目 pin 对齐的 NDK（27.2.12479018）
+sdkmanager --install "ndk;27.2.12479018"
+# 2. 需要 box64（少数无 arm64 版本的 NDK 工具走它）
+pkg install box64-glibc      # 或已有的 box64
+# 3. 生成 shim（NDK 数据 + Termux clang/llvm-* 原生工具 + box64 兜底）
+python termux/setup-termux-ndk.py
+# 4. 让 AGP 用 shim 的 cmake/ninja（local.properties 已被 gitignore）
+printf 'sdk.dir=%s\ncmake.dir=%s\n' "$HOME/android-sdk" \
+  "$HOME/.cache/better-endfield-next/termux-ndk/android-cmake" > android/local.properties
+```
+
+### 构建
+
+```bash
+export BE_TERMUX_NDK="$HOME/.cache/better-endfield-next/termux-ndk/ndk-compat"
+cd android
+./gradlew :app:assembleDebug \
+  -PworkspaceConfig="$PWD/../ci-workspace.json" \
+  -Pandroid.aapt2FromMavenOverride="$PREFIX/bin/aapt2" \
+  --offline --build-cache --console=plain
+```
+
+`ci-workspace.json` 只需 `{"schema_version":1,"tools":{"android_sdk":"<SDK>"}}`。
+
+**注意**：`BE_TERMUX_NDK` 是 Gradle **daemon 启动时**读的环境变量。改了它要先
+`./gradlew --stop` 再构建，否则 daemon 还用旧环境。
+
+### 实测数字（本机，aarch64）
+
+| 场景 | 耗时 |
+|---|---|
+| 首次完整 `assembleDebug`（含 CMake 配置 + 150 个原生目标） | 约 2 分 31 秒 |
+| 改一个 `.cpp` 后增量 | 8–10 秒（4 个任务执行） |
+
+产物：`build/next/android/gradle/app/outputs/apk/debug/app-debug.apk`，
+内含 `lib/arm64-v8a/libbetterendfieldnext_{android,installer}.so`（ELF aarch64，
+`built by NDK r27c`）与 `assets/bundled-resources/core.zip`。
+
+### 速度结论（参考 JMNeXt 的实测笔记）
+
+- **别用 `--no-daemon`**：每次多 fork 一个 JVM，实测慢 7–16 秒；
+- **常驻 daemon + `--offline` + `--build-cache`**，并尽量把多个任务合并进同一次调用；
+- `org.gradle.workers.max=2` 反而更慢（热降频/内存先到头），不要设；
+- **configuration cache 暂不可用**：`settings.gradle.kts` 在配置阶段起 Python
+  (`workspace_config.py`) 且 Kotlin 任务序列化有问题，Gradle 会直接判失败——保持关闭；
+- release 的耗时大头通常是 R8 与 `lintVital*`，日常迭代用 `assembleDebug`；需要时再单独跑 lint。
+
+### 本机构建的实现要点（都 gated 在 `BE_TERMUX_NDK` 下）
+
+- `ndkPath` 指向 shim；`cmake.version` 让位给 `cmake.dir`（自建 shim）；
+- shim 里 `clang`/`clang++` 是 **arm64 Termux clang**，编译/链接分别处理静态 libc++，
+  其余 `llvm-*`、`ld.lld` 也用 Termux 版本；仅个别无替代的工具回退 box64；
+- CMake 配置仍由 box64 跑 x86_64 版本（一次性，约 2 分钟）；
+- `-DCMAKE_SUPPRESS_REGENERATION=ON` + 配置后把生成的 ninja 规则里的 x86_64
+  cmake 路径改写成 shim，避免 `ninja` 直接 exec x86_64 二进制。

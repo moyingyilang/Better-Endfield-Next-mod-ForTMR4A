@@ -19,6 +19,9 @@ val resourceUpdate = beWorkspace["resource_update"] as Map<String, Any?>
 @Suppress("UNCHECKED_CAST")
 val sharedOutputs = resourceUpdate["outputs"] as Map<String, Any?>
 val nativeStaging = File(workspacePaths["build"] as String, "next/android/native/app")
+// Opt-in: aarch64 Termux local builds pass BE_TERMUX_NDK pointing at the shim
+// produced by termux/setup-termux-ndk.py. Unset on CI / x86_64 hosts.
+val termuxNdkPath: String? = System.getenv("BE_TERMUX_NDK")?.takeIf { it.isNotBlank() }
 val generatedAssets = layout.buildDirectory.dir("generatedAssets")
 
 // Directory.Build.props is the single source of truth for the product version:
@@ -83,6 +86,9 @@ android {
     namespace = "dev.betterendfield.next"
     compileSdk = 37
     ndkVersion = "27.2.12479018"
+    if (termuxNdkPath != null) {
+        ndkPath = termuxNdkPath
+    }
 
     buildFeatures {
         buildConfig = true
@@ -107,6 +113,11 @@ android {
                 cppFlags += listOf("-std=c++20")
                 arguments += listOf("-DANDROID_STL=c++_static",
                     "-DDOBBY_ROOT=${(workspaceTools["android_dobby"] as String).replace('\\', '/')}")
+                if (termuxNdkPath != null) {
+                    // The local shim drives CMake through box64; regeneration rules
+                    // embed the raw x86_64 cmake path and cannot run natively.
+                    arguments += "-DCMAKE_SUPPRESS_REGENERATION=ON"
+                }
             }
         }
     }
@@ -145,7 +156,9 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            if (termuxNdkPath == null) {
+                version = "3.22.1"
+            }
             // AGP forbids native staging inside this project's Gradle buildDir.
             buildStagingDirectory = nativeStaging
         }
@@ -289,3 +302,26 @@ dependencies {
     implementation("io.github.libxposed:service:102.0.0")
 }
 
+if (termuxNdkPath != null) {
+    // CMake writes its own executable path into generated ninja rules (for
+    // `cmake -E` and dependency scanning). On this host that path is an
+    // x86_64 binary; rewrite it to the box64-backed shim after configure.
+    val sdkCmake = File(workspaceTools["android_sdk"] as String, "cmake/3.22.1/bin/cmake").absolutePath
+    val shimCmake = File(File(termuxNdkPath).parentFile, "android-cmake/bin/cmake").absolutePath
+    tasks.matching { it.name.startsWith("configureCMake") }.configureEach {
+        doLast {
+            if (nativeStaging.isDirectory) {
+                nativeStaging.walkTopDown()
+                    .filter {
+                        it.isFile && (it.name == "build.ninja" || it.name == "rules.ninja" || it.name == "CMakeCache.txt")
+                    }
+                    .forEach { target ->
+                        val text = target.readText()
+                        if (text.contains(sdkCmake)) {
+                            target.writeText(text.replace(sdkCmake, shimCmake))
+                        }
+                    }
+            }
+        }
+    }
+}
