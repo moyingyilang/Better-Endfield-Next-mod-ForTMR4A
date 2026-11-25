@@ -47,3 +47,33 @@ build/next/android/gradle/app/outputs/apk/release/*.apk
 
 `.github/workflows/android-release.yml` 是 CI 侧的等价流程（ubuntu + JDK 21 + NDK）；
 Termux 链是本地权威构建，两者都以 `Directory.Build.props` 为版本唯一真源。
+
+## arm64 Termux 直接跑 Gradle 的已知限制（2026-11-25 实测）
+
+在 Termux（aarch64）本机直接 `./gradlew :app:assembleDebug` 时，Gradle/Java 侧能跑通，
+但 Android SDK/AGP 默认带的是 **x86_64 宿主机工具**，需要逐个替换：
+
+| 阻塞点 | 现象 | 处理 |
+|---|---|---|
+| Gradle 9.3.1 下载 | `downloads.gradle.org` 在手机上超时 | 临时把 wrapper `distributionUrl` 指向镜像（如 `mirrors.cloud.tencent.com/gradle/`）；CI 仍用官方源 |
+| core 资源缺失 | `resources/generated` 为空，`BuildResourcePacks.py` 无输入 | 从 releases 的 `game-resources` 取 `BE-Core-Android-<ver>.zip`，按 `scripts/ci/fetch-core.ps1` 的映射还原 `android/resources/{character-presets,voice-catalog-index}.json` |
+| SDK 的 CMake/Ninja | `cmake: 1: Syntax error: ")" unexpected`（ELF x86-64 无法执行） | `android/local.properties` 写 `cmake.dir=/data/data/com.termux/files/usr`，并临时去掉 `externalNativeBuild.cmake.version`（AGP 才会用自定义 cmake） |
+| AGP 下载的 aapt2 | 同上，`aapt2 Daemon startup failed` | `-Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2`（Termux 的 arm64 aapt2） |
+| **NDK 工具链** | `CMAKE_C_COMPILER .../prebuilt/bin/clang is not a full path to an existing compiler tool` | **硬阻塞**：NDK 只带 `linux-x86_64/darwin-x86_64/windows-x86_64` 宿主工具，arm64 Termux 无法执行 |
+
+结论：本机能完成 **Gradle 配置、core 资源打包、资源合并、aapt2 资源链接**（实测都过了），
+卡在 `configureCMake`。可选路径：
+
+1. **官方路径**：在 GitHub Actions（`.github/workflows/android-release.yml`）构建，或 x86_64 主机；
+2. **本机绕过**：用 Termux clang + NDK sysroot 写自定义 CMake toolchain，预编译
+   `libbetterendfieldnext_android.so` 放进 `jniLibs/arm64-v8a`，Gradle 只负责打包；
+3. **x86_64 proot/QEMU**：慢，但能完全复用官方 NDK 工具链。
+
+复现命令（本机，含上述替换）：
+
+```bash
+printf 'sdk.dir=%s\ncmake.dir=%s\n' "$HOME/android-sdk" "$PREFIX" > android/local.properties
+./gradlew :app:assembleDebug \
+  -PworkspaceConfig="$PWD/ci-workspace.json" \
+  -Pandroid.aapt2FromMavenOverride="$PREFIX/bin/aapt2"
+```
