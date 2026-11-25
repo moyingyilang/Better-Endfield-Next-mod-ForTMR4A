@@ -164,6 +164,14 @@ android {
         }
     }
 
+    if (termuxNdkPath != null) {
+        // Local Termux builds skip lintVitalRelease (it needs an extra Maven
+        // dependency and dominates release wall time). CI keeps the check.
+        lint {
+            checkReleaseBuilds = false
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true

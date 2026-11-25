@@ -141,3 +141,34 @@ cd android
 - CMake 配置仍由 box64 跑 x86_64 版本（一次性，约 2 分钟）；
 - `-DCMAKE_SUPPRESS_REGENERATION=ON` + 配置后把生成的 ninja 规则里的 x86_64
   cmake 路径改写成 shim，避免 `ninja` 直接 exec x86_64 二进制。
+
+### Release（本机）
+
+```bash
+export BE_TERMUX_NDK="$HOME/.cache/better-endfield-next/termux-ndk/ndk-compat"
+cd android
+./gradlew :app:assembleRelease \
+  -PworkspaceConfig="$PWD/../ci-workspace.json" \
+  -Pandroid.aapt2FromMavenOverride="$PREFIX/bin/aapt2" \
+  --offline --build-cache --console=plain
+```
+
+- 本机路径（`BE_TERMUX_NDK` 存在时）自动关闭 `lintVitalRelease`：
+  它需要额外 Maven 依赖、且是 release 墙钟时间大头；CI 不受影响。
+- 首次 release 含原生 Release 重编译 + R8，实测约 **6 分钟**；之后增量约 **25 秒**。
+- 没有签名配置时产物是未签名 APK：
+  `build/next/android/gradle/app/outputs/apk/release/app-release-unsigned.apk`，
+  同时归档到 `releases/<version>/BetterEndfieldNext-<version>-Android-arm64.apk`。
+- R8 混淆映射：`build/next/android/gradle/app/outputs/mapping/release/mapping.txt`。
+- 本机测试可用调试密钥签名（密钥只放 `build/`，不入库）：
+
+```bash
+keytool -genkeypair -keystore build/check/termux-debug.keystore -alias androiddebugkey \
+  -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
+  -dname "CN=Android Debug,O=Android,C=US"
+apksigner sign --ks build/check/termux-debug.keystore --ks-pass pass:android \
+  --key-pass pass:android --out build/check/app-termux-signed.apk <unsigned.apk>
+```
+
+> 注意：镜像的 Gradle wrapper 只用于本机（`downloads.gradle.org` 在部分网络不可达）；
+> 仓库里的 `distributionUrl` 保持官方地址，本地临时改镜像即可。
