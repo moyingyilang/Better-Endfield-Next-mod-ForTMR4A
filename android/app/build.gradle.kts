@@ -112,7 +112,8 @@ android {
             cmake {
                 cppFlags += listOf("-std=c++20")
                 arguments += listOf("-DANDROID_STL=c++_static",
-                    "-DDOBBY_ROOT=${(workspaceTools["android_dobby"] as String).replace('\\', '/')}")
+                    "-DDOBBY_ROOT=${(workspaceTools["android_dobby"] as String).replace('\\', '/')}",
+                    "-DBETTER_ENDFIELD_NEXT_CONVERT=ON")
                 if (termuxNdkPath != null) {
                     // The local shim drives CMake through box64; regeneration rules
                     // embed the raw x86_64 cmake path and cannot run natively.
@@ -208,6 +209,8 @@ val prepareAndroidResourceAssets by tasks.registering(Sync::class) {
     // Optional preview geometry/textures are still downloaded separately.
     from(bundledAndroidCoreArchive) { into("bundled-resources"); rename { "core.zip" } }
     from(rootProject.file("../resources/bem-preview")) { exclude("*.zip"); into("bem-preview") }
+    // EFMI/EFF conversion needs the BEN character catalog inside the APK.
+    from(rootProject.file("../tools/CustomModel/catalog")) { into("catalog") }
     into(generatedAssets)
 }
 

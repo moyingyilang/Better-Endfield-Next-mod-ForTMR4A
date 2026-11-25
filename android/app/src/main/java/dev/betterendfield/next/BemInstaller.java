@@ -163,9 +163,22 @@ final class BemInstaller {
                 stage=new File(root,"stage-"+UUID.randomUUID());
                 if(!stage.mkdir()) throw new IOException(Text.of("无法创建临时目录"));
                 BemImportArchive.Bundle archive;
+                IOException readFailure=null;
                 try(InputStream input=app.getContentResolver().openInputStream(uri)) {
                     if(input==null) throw new IOException(Text.of("无法打开包"));
                     archive=BemImportArchive.read(input,stage,BemInstaller::checkpoint,text->status=text);
+                } catch(IOException notBem) {
+                    readFailure=notBem;archive=null;
+                }
+                if(archive==null) {
+                    // EFMI / EFF sources are converted in-process, then re-enter
+                    // the ordinary BEM install pipeline.
+                    status=Text.of("正在转换 EFMI/EFF…");
+                    File converted=BemSource.prepare(app,uri,stage);
+                    if(converted==null) throw readFailure;
+                    try(InputStream input=new java.io.FileInputStream(converted)) {
+                        archive=BemImportArchive.read(input,stage,BemInstaller::checkpoint,text->status=text);
+                    }
                 }
                 if(archive.packages.isEmpty()) throw new IOException(Text.of("ZIP 中没有可导入的 BEM。\n")+String.join("\n",archive.issues));
                 loadCodec();checkpoint();

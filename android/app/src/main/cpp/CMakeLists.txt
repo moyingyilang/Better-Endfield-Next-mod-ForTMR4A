@@ -245,6 +245,13 @@ if(BETTER_ENDFIELD_NEXT_CONVERT)
     add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/convert"
         "${CMAKE_CURRENT_BINARY_DIR}/be-convert")
     target_link_libraries(betterendfieldnext_android PRIVATE be_convert)
+    # The app's import UI loads the installer library, so EFMI/EFF conversion is
+    # exposed there too instead of requiring the runtime library to be loaded.
+    target_link_libraries(betterendfieldnext_installer PRIVATE be_convert)
+    target_include_directories(betterendfieldnext_installer PRIVATE
+        "${BETTER_ENDFIELD_NEXT_ROOT}/native/shared/include")
+    target_sources(betterendfieldnext_installer PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/convert_jni.cpp")
 endif()
 
 # ForTMR4A：BEM -> mod.toml/IR（Rust 叶子）。默认关闭。
