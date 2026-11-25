@@ -91,7 +91,7 @@ sdkmanager --install "ndk;27.2.12479018"
 # 2. 需要 box64（少数无 arm64 版本的 NDK 工具走它）
 pkg install box64-glibc      # 或已有的 box64
 # 3. 生成 shim（NDK 数据 + Termux clang/llvm-* 原生工具 + box64 兜底）
-python termux/setup-termux-ndk.py
+sh termux/setup-termux-ndk.sh
 # 4. 让 AGP 用 shim 的 cmake/ninja（local.properties 已被 gitignore）
 printf 'sdk.dir=%s\ncmake.dir=%s\n' "$HOME/android-sdk" \
   "$HOME/.cache/better-endfield-next/termux-ndk/android-cmake" > android/local.properties
