@@ -5,55 +5,67 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.betterendfield.next.BemInstallActivity
-import dev.betterendfield.next.ui.theme.EndfieldTheme
+import dev.betterendfield.next.ui.design.DesignButton
+import dev.betterendfield.next.ui.design.DesignCard
+import dev.betterendfield.next.ui.design.DesignRow
+import dev.betterendfield.next.ui.design.DesignScreen
+import dev.betterendfield.next.ui.design.DesignSystem
+import dev.betterendfield.next.ui.design.DesignText
+import dev.betterendfield.next.ui.design.DesignTheme
 import java.io.File
 
 /**
  * Compose pilot for the model page. Coexists with the upstream Java/XML pages;
- * each page is replaced by a Compose screen once it reaches parity.
+ * each page is replaced by a Compose screen once it reaches parity. The screen
+ * is written against the semantic design components, so switching the design
+ * system re-renders the same page with Endfield / Material / MIUIX styling.
  */
 class ImportPilotActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            EndfieldTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
+            val context = LocalContext.current
+            var system by remember { mutableStateOf(DesignSystem.read(context)) }
+            DesignTheme(system) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
-                    ModelHomeScreen()
+                    ModelHomeScreen(
+                        system = system,
+                        onSelectSystem = { selected ->
+                            DesignSystem.write(context, selected)
+                            system = selected
+                        },
+                        onClose = { finish() },
+                        onImport = {
+                            startActivity(Intent(context, BemInstallActivity::class.java))
+                        },
+                    )
                 }
             }
         }
@@ -61,136 +73,75 @@ class ImportPilotActivity : ComponentActivity() {
 }
 
 @Composable
-private fun ModelHomeScreen() {
-    val context = LocalContext.current
+private fun ModelHomeScreen(
+    system: DesignSystem,
+    onSelectSystem: (DesignSystem) -> Unit,
+    onClose: () -> Unit,
+    onImport: () -> Unit,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var generationCount by remember { mutableIntStateOf(countGenerations(context.filesDir)) }
-    val accent = MaterialTheme.colorScheme.primary
-    val onAccent = MaterialTheme.colorScheme.onPrimary
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-            .verticalScroll(rememberScrollState()),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+    DesignScreen(title = "模型", subtitle = "Better Endfield Next", onClose = onClose) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 20.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "模型",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "Better Endfield Next",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                )
-            }
-            TextButton(onClick = { (context as? ComponentActivity)?.finish() }) {
-                Text("关闭", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        Spacer(Modifier.height(20.dp))
-
-        PilotCard {
-            Text(
-                text = "资源与导入",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "已安装 $generationCount 个模型包",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp,
-            )
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = {
-                        context.startActivity(Intent(context, BemInstallActivity::class.java))
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = accent,
-                        contentColor = onAccent,
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Text("导入资源包", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                }
-                TextButton(onClick = {
-                    generationCount = countGenerations(context.filesDir)
-                }) {
-                    Text("刷新", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        PilotCard {
-            Text(
-                text = "已安装模型",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(10.dp))
-            if (generationCount == 0) {
-                Text(
-                    text = "还没有模型包",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                )
-            } else {
-                generations(context.filesDir).forEach { name ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 10.dp)
-                                .background(accent, RoundedCornerShape(3.dp))
-                                .height(18.dp)
-                                .fillMaxWidth(0.02f),
-                        )
-                        Text(
-                            text = name,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                        )
+            DesignCard {
+                DesignText("资源与导入", size = 17.sp, bold = true)
+                Spacer(Modifier.height(6.dp))
+                DesignText("已安装 $generationCount 个模型包", muted = true)
+                Spacer(Modifier.height(14.dp))
+                DesignRow {
+                    DesignButton("导入资源包", onClick = onImport)
+                    DesignButton("刷新", primary = false) {
+                        generationCount = countGenerations(context.filesDir)
                     }
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            DesignCard {
+                DesignText("设计系统", size = 17.sp, bold = true)
+                Spacer(Modifier.height(10.dp))
+                DesignRow {
+                    DesignSystem.entries.forEach { entry ->
+                        DesignButton(entry.label, primary = entry == system) {
+                            onSelectSystem(entry)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            DesignCard {
+                DesignText("已安装模型", size = 17.sp, bold = true)
+                Spacer(Modifier.height(10.dp))
+                val generations = generations(context.filesDir)
+                if (generations.isEmpty()) {
+                    DesignText("还没有模型包", muted = true)
+                } else {
+                    generations.forEach { name ->
+                        DesignRow {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                            DesignText(name)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
         }
-
-        Spacer(Modifier.height(24.dp))
-    }
-}
-
-@Composable
-private fun PilotCard(content: @Composable () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline,
-        ),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) { content() }
     }
 }
 

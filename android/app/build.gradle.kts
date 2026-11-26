@@ -313,6 +313,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
+    // MIUIX (Miuix) design system, one of the three supported UI systems.
+    implementation("top.yukonga.miuix.kmp:miuix-android:0.7.2")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.1")
     debugImplementation("androidx.compose.ui:ui-tooling")

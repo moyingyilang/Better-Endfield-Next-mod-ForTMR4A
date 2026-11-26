@@ -28,3 +28,11 @@
 - 阶段 2 起，每次上游同步后跑一次迁移后模块的冒烟；出现回归先回退该模块 Kotlin 文件；
 - Kotlin 版本、JVM target 由 `android/build.gradle.kts` 统一，禁止各模块单独设定；
 - 不在迁移提交里混入功能变更。
+
+## 设计系统层（2026-11-26 完成）
+
+- 三套设计系统：`Endfield UI X`（token 生成 Material3 配色）、`Material Design`（Material3 + 动态取色）、`MIUIX`；
+- 统一语义组件：`ui/design/DesignComponents.kt`（`DesignScreen/DesignCard/DesignText/DesignButton/DesignRow`），页面只写一次，三套系统各自渲染；
+- 选择持久化：`uidesign` 设置（key `ui.design_system`），试点页内置切换器；
+- **MIUIX 依赖固定 `top.yukonga.miuix.kmp:miuix-android:0.7.2`**：AGP 9.1 内置 Kotlin 2.2.10 只能读 2.2.x metadata，0.8+ 用 Kotlin 2.3/2.4 编译会拒绝；升级 AGP 之前不要升 Miuix；
+- 新增 UI 一律 Kotlin + 语义组件；旧 Java/XML 页替换时只改 `BemInstallPage` 等入口，不动导入逻辑。

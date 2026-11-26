@@ -19,8 +19,9 @@
 |---|---|
 | 上游 | `upstream` remote = `Dr-hydra/Better-Endfield`；同步流程见 `UPSTREAM-SYNC.md` |
 | 目标平台 | Android（arm64-v8a）；Linux 仅作构建宿主 |
-| 语言 | C11/C17 主链路，Rust 叶子（C ABI，panic=abort），C++17/20 宿主；Android UI 向 Kotlin 迁移 |
-| 禁止 | Python / JS 实现业务逻辑；C# 只读（`legacy/`） |
+| 语言 | C11/C17 主链路，Rust 叶子（C ABI，panic=abort），C++17/20 宿主；**Android UI 全面 Kotlin（Compose）** |
+| UI | Kotlin + Compose；三套设计系统：**Endfield UI X / Material Design / MIUIX**，用户可切换 |
+| 禁止 | Python / JS 实现业务逻辑；C# 只读（`legacy/`）；Android UI 新增 Java |
 | 第三方 | 内置库需在 `CREDITS.md` / `VENDORED.md` 记录来源与许可 |
 | 验收 | `assembleRelease` 出包 + `efml validate` + 真机导入/加载冒烟 |
 
