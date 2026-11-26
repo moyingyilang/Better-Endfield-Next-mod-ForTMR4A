@@ -35,3 +35,4 @@
 - [PROJECT-CHARTER](workspace/PROJECT-CHARTER.md) — 项目定位：跟上游 + 加功能 + 换技术栈
 - [UPSTREAM-SYNC](workspace/UPSTREAM-SYNC.md) — 官方上游同步流程
 - [KOTLIN-MIGRATION](workspace/KOTLIN-MIGRATION.md) — Java→Kotlin 迁移计划
+- [VERSIONING](workspace/VERSIONING.md) — 版本号规则（semver + ts/sha/build 元数据）

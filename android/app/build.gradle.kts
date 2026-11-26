@@ -3,6 +3,10 @@ import java.io.File
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.util.Properties
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 plugins {
     id("com.android.application")
@@ -40,6 +44,29 @@ require(beVersionParts.size == 3) {
 }
 val beVersionCode = beVersionParts[0].toInt() * 10000 +
     beVersionParts[1].toInt() * 100 + beVersionParts[2].toInt()
+
+// Build metadata: <MAJOR>.<MINOR>.<PATCH>+ts.<yyyyMMdd'T'HHmmss>UTCp0800.sha.<shortSha>.build.<buildNo>
+// The timezone is encoded as UTCp0800 so the metadata stays valid semver (no '+'
+// inside build metadata); the timestamp itself is UTC+08:00.
+fun beShortSha(): String {
+    System.getenv("BE_BUILD_SHA")?.takeIf { it.isNotBlank() }?.let { return it.take(7) }
+    System.getenv("GITHUB_SHA")?.takeIf { it.isNotBlank() }?.let { return it.take(7) }
+    return try {
+        val process = ProcessBuilder("git", "rev-parse", "--short=7", "HEAD")
+            .directory(rootProject.projectDir.parentFile)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+        if (process.waitFor() == 0 && output.isNotEmpty()) output else "nogit"
+    } catch (_: Exception) {
+        "nogit"
+    }
+}
+
+val beBuildStamp = SimpleDateFormat("yyyyMMdd'T'HHmmss", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("Asia/Shanghai")
+}.format(Date())
+val beVersionName = "$beVersion+ts.${beBuildStamp}UTCp0800.sha.${beShortSha()}.build.$beVersionCode"
 
 @Suppress("UNCHECKED_CAST")
 val releaseSigningPolicy = beWorkspace["android_signing"] as Map<String, Any?>
@@ -103,7 +130,7 @@ android {
         minSdk = 29
         targetSdk = 35
         versionCode = beVersionCode
-        versionName = beVersion
+        versionName = beVersionName
         testInstrumentationRunner = "dev.betterendfield.next.BemInstallerTest"
 
         ndk {
