@@ -172,3 +172,15 @@ apksigner sign --ks build/check/termux-debug.keystore --ks-pass pass:android \
 
 > 注意：镜像的 Gradle wrapper 只用于本机（`downloads.gradle.org` 在部分网络不可达）；
 > 仓库里的 `distributionUrl` 保持官方地址，本地临时改镜像即可。
+
+
+### Kotlin / Compose 依赖
+
+AGP 9 内置 Kotlin（当前 2.2.10），Compose 用官方编译器插件 2.2.10 + Compose BOM。
+Termux 上首次解析 Kotlin/Compose 依赖时，Gradle 直连 Maven Central 可能 TLS 失败，需给一个可用镜像：
+
+```bash
+export BE_MAVEN_MIRROR="https://maven.aliyun.com/repository/public"
+```
+
+该变量只在设置时插入镜像仓库，CI/官方构建不设置，仓库顺序保持 google → mavenCentral。

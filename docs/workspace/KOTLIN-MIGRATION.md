@@ -16,8 +16,8 @@
 
 | 阶段 | 内容 | 验收 |
 |---|---|---|
-| 0 | Android 构建接入 Kotlin 插件（`kotlin-android`），版本与上游 AGP/Java 17 对齐 | `assembleRelease` 不变、APK 正常 |
-| 1 | 迁移本分支新增、上游不动的文件：`BemSource`、`TextureSupport`、`BemConverter`、`DiagnosticsExport/Provider` | 同一实现、lint/编译通过 |
+| 0（已完成 2026-11-26） | **AGP 9 内置 Kotlin 2.2.10**（不再应用 `kotlin-android`），只加 `org.jetbrains.kotlin.plugin.compose` 2.2.10；`buildFeatures.compose=true` | `assembleRelease` 通过，APK 8.2 MB |
+| 1（进行中） | 已完成：Compose 主题（`ui/theme/EndfieldTheme.kt`，基于 `ui-kit` token）+ 模型页试点 `ui/pilot/ImportPilotActivity.kt`（导入入口、已安装列表、Accent 配色），`AboutPage` 增加「新版模型页面」入口；待迁：`BemSource`、`TextureSupport`、`DiagnosticsExport/Provider` → Kotlin | 试点页编译/装机可见，导入按钮可拉起原流程 |
 | 2 | 迁移低冲突模块：`Text`、`AppLanguage`、`AboutPage`、`BemImportRequest/BemImportStream` | 导入流程 + 设置页冒烟 |
 | 3 | 迁移导入核心：`BemInstaller`、`BemInstallPage`、`BemImportArchive`（与上游协商/改为 Kotlin 后同步 upstream 差异） | 多格式导入、纹理重写、真机 |
 | 4 | 迁移 UI 壳与 Activity/Provider，更新 Manifest | 启动、LSPosed 注入、更新检查 |

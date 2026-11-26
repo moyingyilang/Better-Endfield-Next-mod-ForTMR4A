@@ -5,6 +5,7 @@ import java.util.Properties
 pluginManagement {
     repositories {
         google()
+        System.getenv("BE_MAVEN_MIRROR")?.takeIf { it.isNotBlank() }?.let { maven(it) }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -73,6 +74,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
+        System.getenv("BE_MAVEN_MIRROR")?.takeIf { it.isNotBlank() }?.let { maven(it) }
         mavenCentral()
         maven("https://api.xposed.info/")
     }

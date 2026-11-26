@@ -104,6 +104,10 @@ final class AboutPage extends LinearLayout {
         exportResult = text("", 14); exportResult.setVisibility(GONE);
         diagnostics.add(exportResult);
 
+        SectionCard interfacePilot = card(Text.of("界面"));
+        interfacePilot.add(button(Text.of("新版模型页面"), () -> activity.startActivity(
+                new Intent(activity, dev.betterendfield.next.ui.pilot.ImportPilotActivity.class))));
+
         SectionCard project = card(Text.of("项目"));
         project.add(button(Text.of("GitHub 仓库"), () -> open(REPOSITORY)));
         project.add(button(Text.of("全部版本"), () -> open(RELEASES)));
