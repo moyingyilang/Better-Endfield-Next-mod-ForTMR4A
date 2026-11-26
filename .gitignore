@@ -253,3 +253,7 @@ __pycache__/
 /native/mod/target/
 /native/bem/target/
 /native/ir/target/
+
+# Vendored libarchive needs its build/ CMake templates and Android headers
+!native/shared/third_party/archive/libarchive-3.7.7/build
+!native/shared/third_party/archive/libarchive-3.7.7/build/**
