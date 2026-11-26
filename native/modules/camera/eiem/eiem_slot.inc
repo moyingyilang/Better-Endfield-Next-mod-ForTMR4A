@@ -451,13 +451,20 @@ double g_workerLastTarget = -1.0;
 int64_t g_workerLastQpc = 0;
 bool g_workerLastPlaying = false;
 
+// Releases the lifecycle barrier on every exit path, including the early
+// returns below: a leaked shared lock used to wedge the next reload forever.
+struct LifecycleSharedGuard {
+  LifecycleSharedGuard() { AcquireSRWLockShared(&s_directVmdLifecycleLock); }
+  ~LifecycleSharedGuard() { ReleaseSRWLockShared(&s_directVmdLifecycleLock); }
+};
+
 // DirectVmdRuntime_WorkerTick (1bc9baa) with the free-running QPC clock
 // replaced by the director's timeline. Seeks and loop wraps on the timeline
 // are forwarded as EIEM seek requests / loop cycles so its root, terrain and
 // cadence state resets exactly like EIEM's own transport.
 void WorkerTick() {
   DirectVmdSource_HandleCommandWorker();
-  AcquireSRWLockShared(&s_directVmdLifecycleLock);
+  LifecycleSharedGuard lifecycle;
   DirectVmdRuntime_HandleClipCommandWorker();
   DirectVmdRuntime_HandleCameraOverrideCommandWorker();
   DirectVmdRuntime_HandleMorphOverrideCommandWorker();
@@ -474,7 +481,6 @@ void WorkerTick() {
   if (!clip || !clip->loaded || !s_directVmdSourceClipReady) {
     s_directVmdPlaybackPublic.store(static_cast<uint32_t>(clock.state),
                                     std::memory_order_release);
-    ReleaseSRWLockShared(&s_directVmdLifecycleLock);
     return;
   }
 
@@ -532,7 +538,6 @@ void WorkerTick() {
     s_directVmdLoadedPublic.store(false, std::memory_order_release);
     clock.Stop();
     DirectVmdRuntime_PublishInvalidWorkerFrame();
-    ReleaseSRWLockShared(&s_directVmdLifecycleLock);
     return;
   }
   const VmdFile *morphOverride = s_directVmdWorker.morphOverrideResource.Get();
@@ -543,7 +548,6 @@ void WorkerTick() {
   frame.playbackCycle = clock.loopCycle;
   frame.seekRevision = s_directVmdWorker.handledSeekRevision;
   DirectVmdRuntime_PublishFrame(frame);
-  ReleaseSRWLockShared(&s_directVmdLifecycleLock);
 }
 
 DWORD WINAPI WorkerMain(LPVOID) {

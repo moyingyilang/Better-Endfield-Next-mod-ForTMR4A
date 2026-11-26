@@ -162,11 +162,37 @@ static void DirectVmdRuntime_SetActive(bool active) {
   ReleaseSRWLockExclusive(&s_directVmdSourceLock);
 }
 
+// A worker that stops making progress while holding the lifecycle barrier must
+// not freeze the reload path with it, so the wait below is bounded.
+static thread_local bool t_directVmdLifecycleDegraded = false;
+
 static void DirectVmdRuntime_BeginLifecycleMutation() {
-  AcquireSRWLockExclusive(&s_directVmdLifecycleLock);
+  const DWORD start = GetTickCount();
+  for (;;) {
+    if (TryAcquireSRWLockExclusive(&s_directVmdLifecycleLock)) {
+      t_directVmdLifecycleDegraded = false;
+      return;
+    }
+    const DWORD waited = GetTickCount() - start;
+    if (waited >= 2000) {
+      // The request itself only writes atomics and a command-lock guarded
+      // path, and every consumer validates the generation it was published
+      // with, so proceeding without the barrier costs at most one rejected
+      // frame. Never freeze the game instead.
+      Log("[P2-LIFECYCLE-TIMEOUT] waited=%lu ms proceedingWithoutBarrier=1",
+          waited);
+      t_directVmdLifecycleDegraded = true;
+      return;
+    }
+    Sleep(20);
+  }
 }
 
 static void DirectVmdRuntime_EndLifecycleMutation() {
+  if (t_directVmdLifecycleDegraded) {
+    t_directVmdLifecycleDegraded = false;
+    return;
+  }
   ReleaseSRWLockExclusive(&s_directVmdLifecycleLock);
 }
 
@@ -267,8 +293,10 @@ static void DirectVmdRuntime_SetSpeed(float speed) {
 static void DirectVmdRuntime_SetMotionMultiplier(float multiplier) {
   if (!std::isfinite(multiplier))
     return;
+  // BE-PATCH(anchor): 0 is allowed so squad follow can drop the VMD
+  // displacement entirely and keep every dancer on the spot it stands on.
   s_directVmdMotionMultiplier.store(
-      (std::max)(0.05f, (std::min)(multiplier, 5.0f)),
+      (std::max)(0.0f, (std::min)(multiplier, 5.0f)),
       std::memory_order_release);
 }
 

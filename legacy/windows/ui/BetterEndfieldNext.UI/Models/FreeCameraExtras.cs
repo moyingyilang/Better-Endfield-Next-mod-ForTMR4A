@@ -6,6 +6,15 @@ namespace BetterEndfieldNext.UI.Models;
 
 // Free camera look, motion presets, keyframes, VMD camera and MMD playback
 // ([betterendfieldnext.camera] keys read by native/modules/camera).
+public sealed class CharacterOutlineSlot
+{
+    public bool Enabled { get; set; } = true;
+    public string Color { get; set; } = "FFFFFF";
+    public double Width { get; set; } = 0.06;
+    public double Intensity { get; set; } = 8.3;
+    public double Opacity { get; set; } = 1.0;
+}
+
 public sealed class FreeCameraExtras
 {
     public static readonly string[] MotionPresets = ["orbit", "dolly_zoom", "crane", "truck"];
@@ -41,6 +50,13 @@ public sealed class FreeCameraExtras
     public bool VmdMotionLoop { get; set; }
     public double VmdMotionWeight { get; set; } = 1.0;
     public bool VmdTerrainEnabled { get; set; }
+    public bool VmdPerActorAnchor { get; set; }
+    public bool VmdSquadFollow { get; set; }
+    public bool VmdOutline { get; set; }
+    public bool CharacterOutlineEnabled { get; set; }
+    public string CharacterOutlineHotkey { get; set; } = "BACKSLASH";
+    public CharacterOutlineSlot[] CharacterOutlineSlots { get; set; } = [new(), new(), new(), new()];
+    public double VmdOutlineWidth { get; set; } = 3.0;
     public string VmdClothMode { get; set; } = "stable";
     public double VmdMotionScale { get; set; } = 1.0;
     public string VmdMotionHotkey { get; set; } = "NONE";
@@ -77,7 +93,7 @@ public sealed class FreeCameraExtras
     public string MmdOverlayHotkey { get; set; } = "SUBTRACT";
 
     // The camera module must load for MMD playback even without the free camera.
-    public bool RequiresCameraModule => MmdEnabled || GlobalFovEnabled;
+    public bool RequiresCameraModule => MmdEnabled || GlobalFovEnabled || CharacterOutlineEnabled;
 
     // MMD music plays through the Music module's local channel.
     public bool RequiresMusicModule => MmdEnabled && MmdMusicEnabled;
@@ -117,6 +133,20 @@ public sealed class FreeCameraExtras
         Line("vmd_motion_loop", Boolean(VmdMotionLoop));
         Line("vmd_motion_weight", Number(VmdMotionWeight));
         Line("vmd_terrain_enabled", Boolean(VmdTerrainEnabled));
+        Line("vmd_per_actor_anchor", Boolean(VmdPerActorAnchor));
+        Line("vmd_squad_follow", Boolean(VmdSquadFollow));
+        Line("character_outline_enabled", Boolean(CharacterOutlineEnabled));
+        Line("character_outline_hotkey", CharacterOutlineHotkey);
+        for (int i = 0; i < 4; i++)
+        {
+            var slot = CharacterOutlineSlots[i];
+            string prefix = $"character_outline_slot{i + 1}_";
+            Line(prefix + "enabled", Boolean(slot.Enabled));
+            Line(prefix + "color", slot.Color);
+            Line(prefix + "width", Number(slot.Width));
+            Line(prefix + "intensity", Number(slot.Intensity));
+            Line(prefix + "opacity", Number(slot.Opacity));
+        }
         Line("vmd_cloth_mode", VmdClothMode);
         Line("vmd_motion_scale", Number(VmdMotionScale));
         Line("vmd_motion_hotkey", VmdMotionHotkey);
@@ -199,9 +229,27 @@ public sealed class FreeCameraExtras
         extras.VmdMotionLoop = Boolean("vmd_motion_loop", false);
         extras.VmdMotionWeight = System.Math.Clamp(Number("vmd_motion_weight", 1), 0, 1);
         extras.VmdTerrainEnabled = Boolean("vmd_terrain_enabled", false);
+        extras.VmdPerActorAnchor = Boolean("vmd_per_actor_anchor", false);
+        extras.VmdSquadFollow = Boolean("vmd_squad_follow", false);
+        extras.CharacterOutlineEnabled = Boolean("character_outline_enabled", false);
+        extras.CharacterOutlineHotkey = Text("character_outline_hotkey", "BACKSLASH");
+        for (int i = 0; i < 4; i++)
+        {
+            var slot = extras.CharacterOutlineSlots[i];
+            string prefix = $"character_outline_slot{i + 1}_";
+            slot.Enabled = Boolean(prefix + "enabled", true);
+            string color = Text(prefix + "color", "FFFFFF").TrimStart('#');
+            slot.Color = color.Length == 6 && System.Linq.Enumerable.All(color, System.Uri.IsHexDigit)
+                ? color.ToUpperInvariant() : "FFFFFF";
+            slot.Width = System.Math.Clamp(Number(prefix + "width", 0.06), 0, 1);
+            slot.Intensity = System.Math.Clamp(Number(prefix + "intensity", 8.3), 1, 100);
+            slot.Opacity = System.Math.Clamp(Number(prefix + "opacity", 1), 0, 1);
+        }
+        extras.VmdOutline = Boolean("vmd_outline", false);
+        extras.VmdOutlineWidth = System.Math.Clamp(Number("vmd_outline_width", 3), 0.5, 8);
         string cloth = Text("vmd_cloth_mode", "stable").ToLowerInvariant();
         extras.VmdClothMode = System.Array.IndexOf(ClothModes, cloth) >= 0 ? cloth : "stable";
-        extras.VmdMotionScale = System.Math.Clamp(Number("vmd_motion_scale", 1), 0.05, 5);
+        extras.VmdMotionScale = System.Math.Clamp(Number("vmd_motion_scale", 1), 0, 5);
         extras.VmdMotionHotkey = Hotkey("vmd_motion_hotkey", extras.VmdMotionHotkey);
         extras.VmdMotionPauseHotkey = Hotkey("vmd_motion_pause_hotkey", extras.VmdMotionPauseHotkey);
         extras.VmdMotionStopHotkey = Hotkey("vmd_motion_stop_hotkey", extras.VmdMotionStopHotkey);

@@ -21,7 +21,12 @@ final class Text {
     private static final Map<String, String> ENGLISH = new HashMap<>(1024);
 
     static {
-        put("检查软件版本并自动更新未固定的资源，预览包首次按需下载","Check software and update unpinned resources; preview resources are an optional first download");
+        put("检查软件版本并自动更新未固定的资源（更新安装包时自动重置为内置基础资源），预览包首次按需下载","Check software and update unpinned resources (resets core resources to bundled version on APK updates); preview resources are an optional first download");
+        put("未下载预览资源","Preview resources are not downloaded");
+        put("基础资源随安装包内置并强制使用，仅支持导入预览资源包","Core resources are bundled with the app package; only preview packs can be imported");
+        put("导入预览包 / 回退","Import / roll back preview");
+        put("恢复预览自动更新","Resume preview auto-update");
+        put("预览资源检查完成，重新打开预览即可生效。","Preview resource check complete; reopen preview to apply updates.");
         put("更新基础资源","Update core resources");
         put("下载预览资源","Download preview resources");
         put("未下载预览资源。请前往「关于」页点击「下载预览资源」，下载完成后重新打开预览。",
@@ -686,6 +691,17 @@ final class Text {
         put("」？", "\"?");
         put("启用「", "Enable \"");
         put("无法打开创意工坊", "Unable to open the workshop");
+        put("诊断日志", "Diagnostics");
+        put("导出模块与游戏运行日志，用于反馈问题。读取游戏侧日志需要授予 root 权限。",
+                "Export module and game logs for troubleshooting. Reading game logs requires root access.");
+        put("导出日志", "Export logs");
+        put("正在导出…", "Exporting…");
+        put("如弹出 root 授权，请选择允许", "Allow the root prompt if it appears");
+        put("已生成日志，选择应用发送", "Log created. Choose an app to send it.");
+        put("导出失败", "Export failed");
+        put("分享诊断日志", "Share diagnostics");
+        put("日志已保存到\n", "Log saved to\n");
+        put("无法创建日志目录", "Cannot create the log directory");
         put("范围 0.05–20", "Range 0.05–20");
         put("模型缩放应为 0.05–20；保留上次有效值",
                 "Model scale must be between 0.05 and 20; keeping the last valid value");

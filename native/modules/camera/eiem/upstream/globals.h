@@ -14,11 +14,29 @@ static CRITICAL_SECTION g_logLock;
 // BE-PATCH(log): internal linkage (EIEM is one TU inside the Camera module)
 // and a size cap, since DirectVmd diagnostics are verbose during playback.
 static uint64_t g_logBytesWritten = 0;
+static uint64_t g_logLinesDropped = 0;
 static constexpr uint64_t kLogByteLimit = 32ull * 1024 * 1024;
 static void Log(const char *fmt, ...) {
   if (g_logHandle == INVALID_HANDLE_VALUE)
     return;
-  EnterCriticalSection(&g_logLock);
+  // Diagnostics must never be able to wedge the caller. The worker logs while
+  // it holds the lifecycle barrier, so an unbounded wait here used to freeze
+  // the whole slot together with the reload path that was waiting for that
+  // barrier: the main thread's per-frame ghost logging kept re-taking this
+  // section and the worker never got in. A contended line is dropped instead.
+  bool entered = false;
+  for (int attempt = 0; attempt < 64; ++attempt) {
+    if (TryEnterCriticalSection(&g_logLock)) {
+      entered = true;
+      break;
+    }
+    if ((attempt % 8) == 7)
+      Sleep(0); // a few milliseconds at most, then drop the line
+  }
+  if (!entered) {
+    ++g_logLinesDropped;
+    return;
+  }
   if (g_logBytesWritten >= kLogByteLimit) {
     LeaveCriticalSection(&g_logLock);
     return;

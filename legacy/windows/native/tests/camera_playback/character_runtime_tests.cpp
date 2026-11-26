@@ -13,6 +13,8 @@ struct Object {
     Object* model_go=nullptr;
     Object* movement=nullptr;
     std::vector<Object*> animators;
+    std::vector<Object*> skinned, meshes;
+    bool outline=false;
     Vector3 position{};
     bool human=true,enabled=true;
 };
@@ -25,6 +27,7 @@ struct Rig {
 };
 struct PlayerFake {char header[16]{};void* manager=nullptr;};
 Rig leader,member1,member2;
+Object leader_skin_a,leader_skin_b,leader_mesh,member1_skin,member2_skin;
 Object manager;
 PlayerFake player;
 std::vector<Object*> squad;
@@ -49,7 +52,11 @@ void* BE_CALL InvokeFake(void*,const void* method,void* instance,void** a,void**
     switch(CM::Id(id-1)) {
         case CM::Alive:return Box(a[0]&&static_cast<Object*>(a[0])->alive);
         case CM::Transform:return object->transform;
-        case CM::Children:return a[0]==reinterpret_cast<void*>(201)?static_cast<void*>(&object->animators):nullptr;
+        case CM::Children:
+            if(a[0]==reinterpret_cast<void*>(201))return static_cast<void*>(&object->animators);
+            if(a[0]==reinterpret_cast<void*>(202))return static_cast<void*>(&object->skinned);
+            if(a[0]==reinterpret_cast<void*>(203))return static_cast<void*>(&object->meshes);
+            return nullptr;
         case CM::ArrayLength:return Box(int(static_cast<std::vector<Object*>*>(instance)->size()));
         case CM::ArrayValue:return static_cast<std::vector<Object*>*>(instance)->at(*static_cast<int*>(a[0]));
         case CM::IsChild:return Box(object->alive&&a[0]==object->transform);
@@ -95,6 +102,8 @@ int main() {
     Contract("unity.transform.position.get")->method_info=reinterpret_cast<void*>(1005);
     Contract("unity.transform.rotation.get")->method_info=reinterpret_cast<void*>(1006);
     leader.Setup(3);member1.Setup(10);member2.Setup(20);
+    leader.model.skinned={&leader_skin_a,&leader_skin_b};leader.model.meshes={&leader_mesh};
+    member1.model.skinned={&member1_skin};member2.model.skinned={&member2_skin};
     player.manager=&manager;squad={&member1.entity,&leader.entity,&member2.entity};
     auto& r=CM::runtime;r.resolved=true;r.leases=&leases;r.applied=Config();std::atomic_store(&CM::config,r.applied);
     r.squad_manager_offset=int(offsetof(PlayerFake,manager));
@@ -232,6 +241,28 @@ int main() {
     CHECK(EiemFake::actors[0].face.empty()&&EiemFake::actors[1].face.empty());
     CM::requests.store(16);PumpCharacterMotion();
 
+    // Squad follow: one motion for everyone, each dancer keeps its own origin.
+    {auto config=Config();config->squad_follow=true;r.applied=config;std::atomic_store(&CM::config,r.applied);}
+    RequestCharacterDirectorLoad(Cast(1));PumpCharacterMotion();
+    CHECK(r.Loading()&&Dancing()==0);
+    CHECK(EiemFake::actors[1].entity==&member1.entity&&EiemFake::actors[1].motion=="C:/w/motion.vmd");
+    CHECK(EiemFake::actors[2].entity==&member2.entity&&EiemFake::actors[2].motion=="C:/w/motion.vmd");
+    CHECK(EiemFake::actor_anchor_valid[0]&&nearly(EiemFake::actor_anchor_position[0][0],3));
+    CHECK(EiemFake::actor_anchor_valid[1]&&nearly(EiemFake::actor_anchor_position[1][0],10));
+    CHECK(EiemFake::actor_anchor_valid[2]&&nearly(EiemFake::actor_anchor_position[2][0],20));
+    CHECK(!EiemFake::anchor_valid);
+    Ready();CHECK(Dancing()==3);
+    CM::requests.store(16);PumpCharacterMotion();CHECK(pins.empty());
+    // Per-actor anchor alone re-spots a real multi-dancer work but copies no part.
+    {auto config=Config();config->per_actor_anchor=true;r.applied=config;std::atomic_store(&CM::config,r.applied);}
+    RequestCharacterDirectorLoad(Cast(2));PumpCharacterMotion();
+    CHECK(Dancing()==0&&!EiemFake::anchor_valid);
+    CHECK(EiemFake::actors[1].motion=="C:/w/motion2.vmd");
+    CHECK(EiemFake::actor_anchor_valid[0]&&nearly(EiemFake::actor_anchor_position[0][0],3));
+    CHECK(EiemFake::actor_anchor_valid[1]&&nearly(EiemFake::actor_anchor_position[1][0],10));
+    Ready();CHECK(Dancing()==2);
+    CM::requests.store(16);PumpCharacterMotion();CHECK(pins.empty());
+
     // Configuration invalidation dominates a running session.
     r.applied=Config();std::atomic_store(&CM::config,r.applied);
     CM::requests.store(1);PumpCharacterMotion();Ready();CHECK(Dancing()==1);
@@ -263,8 +294,17 @@ int main() {
     // Opt-in flags are parsed by production CameraConfiguration.
     auto c=ParseConfiguration("enabled=true\nvmd_body_enabled=true\nvmd_terrain_enabled=true\nvmd_motion_scale=9\nvmd_motion_file=C:/dance.vmd\nvmd_motion_hotkey=F11\nhotkey_layout=2\n");
     CHECK(c.vmd_body_enabled&&c.vmd_terrain_enabled&&!c.vmd_face_enabled);CHECK(nearly(c.vmd_motion_scale,5));CHECK(c.vmd_motion_key==VK_F1+10);CHECK(c.vmd_motion_file=="C:/dance.vmd");
-    CHECK(nearly(ParseConfiguration("vmd_motion_scale=0\n").vmd_motion_scale,0.05));
+    CHECK(nearly(ParseConfiguration("vmd_motion_scale=0\n").vmd_motion_scale,0));
     CHECK(nearly(ParseConfiguration("").vmd_motion_scale,1));
+    // Squad follow and the per-actor origin are separate opt-ins.
+    CHECK(!ParseConfiguration("").vmd_squad_follow&&!ParseConfiguration("").vmd_per_actor_anchor);
+    auto follow=ParseConfiguration("vmd_squad_follow=true\nvmd_per_actor_anchor=true\n");
+    CHECK(follow.vmd_squad_follow&&follow.vmd_per_actor_anchor);
+    // Retired MMD settings are still parsed for old configuration compatibility.
+    CHECK(nearly(ParseConfiguration("").vmd_outline_width,3));
+    CHECK(nearly(ParseConfiguration("vmd_outline_width=5\n").vmd_outline_width,5));
+    CHECK(nearly(ParseConfiguration("vmd_outline_width=99\n").vmd_outline_width,8));
+    CHECK(nearly(ParseConfiguration("vmd_outline_width=0.1\n").vmd_outline_width,0.5));
     // Cloth mode: EIEM's playback service by default; unknown values keep it.
     CHECK(ParseConfiguration("").vmd_cloth_mode==1);
     CHECK(ParseConfiguration("vmd_cloth_mode=game\n").vmd_cloth_mode==0);

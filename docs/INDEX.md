@@ -31,3 +31,7 @@
 - [公开文件名到源码位置](../config/documents.json)：安装目录文档名保持原 basename。
 - [全量旧路径到新路径映射](../config/document-path-migrations.json)：供外部消费者、代码注释和证据引用集成。
 - [迁移方法与离线检查](workspace/DOCUMENT_MIGRATION.md)
+
+- [PROJECT-CHARTER](workspace/PROJECT-CHARTER.md) — 项目定位：跟上游 + 加功能 + 换技术栈
+- [UPSTREAM-SYNC](workspace/UPSTREAM-SYNC.md) — 官方上游同步流程
+- [KOTLIN-MIGRATION](workspace/KOTLIN-MIGRATION.md) — Java→Kotlin 迁移计划

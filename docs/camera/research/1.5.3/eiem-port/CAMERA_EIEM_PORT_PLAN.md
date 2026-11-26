@@ -187,13 +187,18 @@ Windows 检查：`dev/pc-camera-motion-20260927` 用 MSVC 编译 Host/Actions/Ca
   - `hotkey_layout=2` 表示新布局；旧配置（layout 1）里的 F6–F10 默认键会被替换成小键盘默认值。
 - [x] 统一播放（`mmd_director_runtime.inc`）：动作、镜头、表情、音乐共用一个 QPC 时钟，支持播放/暂停/停止/跳转/循环；
   镜头模式 VMD / 自由 / 游戏可切换；没有单独镜头文件时用动作 VMD 里的镜头段。
-- [x] 音乐：音乐模块新增 `local_track.inc`（Media Foundation 解码 WAV/MP3/M4A/AAC/FLAC/WMA），
+- [x] 音乐：音乐模块新增 `local_track.inc`（Media Foundation 解码 WAV/MP3/M4A/AAC/FLAC/WMA；OGG 由 `stb_vorbis` 在模块内解码，
+  因为打包版 Web Media Extensions 的 Vorbis 解码器对经典 Win32 进程不可见），
   导出 `BetterEndfield_GetLocalMusicApiV1`（`native/shared/include/BetterEndfield/LocalMusic.h`）。
   本地曲目优先于 OmniMix，播放时让出 OmniMix、保持原生 BGM 暂停，结束后恢复。相机模块用 `mmd_music_enabled` 联动。
 - [x] 悬浮窗 `BetterEndfield.MmdOverlay.exe`：由相机模块在 MMD 开启时拉起；可点击但不激活窗口；
   共享内存双向协议见 `mmd_overlay_protocol.h`；小键盘 `-` 显示/隐藏；已加入打包脚本。
 - [x] 作品库：`mmd_library.h`（原生）与 `Services/MmdLibraryService.cs`（管理器）读写同一格式；
   管理器相机页新增 MMD 区块：导入作品（选动作/镜头/表情/音乐，复制进库）、音乐偏移、循环、悬浮窗开关、键位。
+- [x] 队友跟跳（`vmd_squad_follow`）：单人作品也发给小队其余槽位，每个角色以自己的根位姿为舞台锚点
+  （`EiemBody::SetActorAnchor`，只写对应 slot 的 `g_beFixedAnchor*`），不再叠在操控角色身上；
+  「各自原地」（`vmd_per_actor_anchor`）把同一规则用于多人编舞作品。位移幅度下限由 5% 放到 0，
+  置 0 即完全忽略 VMD 的 center 位移，锚点决定从哪起跳、位移决定跳的时候挪不挪。全场景 NPC 广播不在本次范围。
 - 构建：Host/Actions/Camera/Music/MmdOverlay 用 MSVC 编译 0 错误；`camera_playback` 7 个测试全过；
   管理器 0 错误（`global.json` 临时改 9.0.308 后已恢复）。构建目录 `F:/zmd_bem/tmp/pcmotion/native`、`tests`。
 - 未提交 git，未实机测试。
@@ -280,3 +285,27 @@ Windows 检查：`dev/pc-camera-motion-20260927` 用 MSVC 编译 Host/Actions/Ca
     `core=1 finalIkSolver=1` 是身体动作的前提；`grounder/floorLayout` 为 0 时地形贴合不可用。
   - 冻结（8 键，timeScale=0）时 FinalIK 的 `SolverManager.LateUpdate` 是否仍执行——决定暂停画面时姿势是否保持。
   - 与 Actions 冲刺姿态互斥：冲刺中按播放应提示等待。
+
+## 2026-11-25 角色描边（`vmd_outline`）
+
+> 以下为已撤回的旧实验记录。`enableCharacterOutline` 与角色材质线宽不能等同于拍照站位白边入口；旧实现已移除。独立功能的真实资源链、配置与验证边界见 [角色描边](../../1.6.3/character-outline/CHARACTER_OUTLINE.md)。
+
+- 来源：拍照模式「调整角色站位」会给选中的角色加一圈白色描边。逆向 `global-metadata.dat` 得到的链路：
+  `ToggleSelectedCharOutline`（站位控制器）落到逐渲染器的 `UnityEngine.Renderer.enableCharacterOutline`；
+  管线侧由独立的 `CharacterOutline` shader pass 在前向不透明阶段多画一遍
+  （`PrepareForwardOpaqueCharacterOutlineRendererList`、`characterOutlineOpaque*ECSList`、`s_CharacterOutlineName`），
+  是否执行由 `HGCharacterVolume.charOutlineQualityMode`（`AlwaysOn/Tier10/Tier20/AlwaysOff`）与管线级
+  `enableCharacterOutline` 共同决定。
+- 实机核实（2026-11-25）：`enableCharacterOutline` 本来就是角色默认状态（开播前 116/187 已是 true），
+  拿它当「选中开关」没有可见变化；真正决定看不看得见的是**描边线宽**。角色材质上只有 `_OutlineWidth`
+  （女管 body/cloth 0.5–0.6，face 0.5），**没有 `_OutlineColor`** —— 颜色是 shader 固定的浅色，不是材质参数。
+  把线宽放大 6 倍后白色描边立刻可见，说明 pass 在开放世界相机里本来就是开着的，`charOutlineQualityMode` 无需改。
+- 实现：`vmd_outline` 开关 + `vmd_outline_width` 倍率（相机页「描边粗细（%）」，50–800%，默认 300%）。
+  开播时遍历每个 dancer 的 `SkinnedMeshRenderer` / `MeshRenderer`：置 `enableCharacterOutline=true`，
+  并用 **MaterialPropertyBlock** 把 `_OutlineWidth`（以及存在时的 `_Outline2Width` / `_outlineWidth`）
+  写成「材质原值 × 倍率」；停播、队员离场、配置变更时把原 property block 写回、flag 还原。
+  共享材质不动，方法解析失败只记一行日志。
+- 边界：`_OutlineColor`/`_Outline2Color` 在本作角色材质上不存在，颜色不可调；线宽单位由 shader 决定，
+  倍率只做相对缩放。渲染器上的组件数组与渲染器本身都 pin 在 slot 上随释放解除。
+- 验证：`camera_playback` 9/9；角色适配层 153 checks（含 `vmd_outline_width` 默认值/夹取）；
+  Camera 模块与管理器构建通过；实机 600% 可见白描边。
