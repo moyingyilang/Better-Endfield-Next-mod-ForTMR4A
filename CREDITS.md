@@ -40,3 +40,13 @@ MinHook、Dobby、zstd、astcenc、miniz、nlohmann/json、bcdec、cJSON、7-Zip
 《明日方舟：终末地》及全部官方素材版权归 **鹰角网络（Hypergryph）** 所有。
 本项目是非官方、非营利的社区项目，与鹰角网络无关联，也不代表其认可。
 感谢所有 BEM/MMD 创作者与测试者的反馈——没有你们的包和实测，导入链的校验规则不会这么具体。
+
+## 第三方库（Android 导入链）
+
+- **libarchive 3.7.7**（BSD-2-Clause）：ZIP / 7-Zip / RAR4 / RAR5 / TAR 读取；
+- **bzip2 1.0.8**（bzip2 license）：`.bz2` 过滤器；
+- **xz / liblzma 5.6.3**（0BSD / LGPL）：`.xz`、`.lzma` 过滤器；
+- **zstd**（BSD-3-Clause / GPLv2 双许可，仓库内已有副本）：`.zst` 过滤器。
+
+以上仅做只读解包，不生成 RAR/7z 容器。Vendored 说明见
+`native/shared/third_party/archive/VENDORED.md`。

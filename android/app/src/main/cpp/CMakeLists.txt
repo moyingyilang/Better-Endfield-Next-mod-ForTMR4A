@@ -252,6 +252,15 @@ if(BETTER_ENDFIELD_NEXT_CONVERT)
         "${BETTER_ENDFIELD_NEXT_ROOT}/native/shared/include")
     target_sources(betterendfieldnext_installer PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/convert_jni.cpp")
+    # Multi-format archive extraction (ZIP / 7-Zip / RAR4 / RAR5 / TAR + filters).
+    add_subdirectory("${BETTER_ENDFIELD_NEXT_ROOT}/native/shared/third_party/archive"
+        "${CMAKE_CURRENT_BINARY_DIR}/be-archive")
+    add_library(be_archive STATIC
+        "${BETTER_ENDFIELD_NEXT_ROOT}/native/convert/archive_extract.cpp")
+    target_include_directories(be_archive PUBLIC
+        "${BETTER_ENDFIELD_NEXT_ROOT}/native/shared/include")
+    target_link_libraries(be_archive PRIVATE archive_static)
+    target_link_libraries(betterendfieldnext_installer PRIVATE be_archive)
 endif()
 
 # ForTMR4A：BEM -> mod.toml/IR（Rust 叶子）。默认关闭。

@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "BetterEndfieldNext/SourceArchive.h"
 #include "BetterEndfieldNext/SourceConvert.h"
 
 namespace {
@@ -31,6 +32,26 @@ JNIEXPORT jint JNICALL Java_dev_betterendfield_next_BemSource_probe(JNIEnv* env,
     const std::string source = from_java(env, path);
     if (source.empty()) return -2;
     return be_source_probe(source.c_str());
+}
+
+JNIEXPORT jint JNICALL Java_dev_betterendfield_next_BemSource_probeArchive(
+    JNIEnv* env, jclass, jstring path) {
+    const std::string source = from_java(env, path);
+    if (source.empty()) return 0;
+    return be_archive_probe(source.c_str());
+}
+
+JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemSource_extractArchive(
+    JNIEnv* env, jclass, jstring source, jstring out_dir) {
+    const std::string src = from_java(env, source);
+    const std::string out = from_java(env, out_dir);
+    if (src.empty() || out.empty()) return env->NewStringUTF("source/outDir must not be empty");
+    char err[512] = {0};
+    const int rc = be_archive_extract(src.c_str(), out.c_str(),
+                                      err, static_cast<unsigned>(sizeof err));
+    if (rc == 0) return nullptr;
+    if (err[0] == 0) return env->NewStringUTF("archive extraction failed");
+    return env->NewStringUTF(err);
 }
 
 JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemSource_convertToBem(

@@ -1,0 +1,204 @@
+// ForTMR4A: libarchive-backed extraction for the import pipeline (host C++).
+//
+// libarchive covers ZIP, 7-Zip, RAR4/RAR5, TAR and the tar-family filters. The
+// extraction policy lives here: names are sanitized, links are skipped, sizes
+// and entry counts are capped, encrypted entries are refused.
+#include "BetterEndfieldNext/SourceArchive.h"
+
+#include <archive.h>
+#include <archive_entry.h>
+
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <string>
+
+namespace fs = std::filesystem;
+
+namespace {
+
+constexpr unsigned long long kMaxTotalBytes = 8ull * 1024ull * 1024ull * 1024ull;
+constexpr int kMaxEntries = 100000;
+
+void set_error(char* err, unsigned cap, const std::string& message) {
+    if (!err || cap == 0) return;
+    unsigned n = static_cast<unsigned>(message.size());
+    if (n >= cap) n = cap - 1;
+    std::memcpy(err, message.data(), n);
+    err[n] = 0;
+}
+
+std::string archive_error(struct archive* handle) {
+    const char* text = archive_error_string(handle);
+    std::string message = text ? text : "archive error";
+    if (archive_errno(handle) != 0) {
+        message += " (errno ";
+        message += std::to_string(archive_errno(handle));
+        message += ")";
+    }
+    return message;
+}
+
+bool safe_relative_path(const char* raw) {
+    if (!raw || raw[0] == 0) return false;
+    std::string path(raw);
+    if (path.find('\\') != std::string::npos) {
+        for (char& ch : path) {
+            if (ch == '\\') ch = '/';
+        }
+    }
+    if (path[0] == '/') return false;
+    fs::path parsed(path);
+    for (const auto& part : parsed) {
+        if (part == "..") return false;
+        if (part == ".") continue;
+        if (part.empty()) return false;
+    }
+    return true;
+}
+
+struct ExtractState {
+    unsigned long long total = 0;
+    int entries = 0;
+    std::string error;
+};
+
+void close_file(void* context) {
+    std::FILE* file = static_cast<std::FILE*>(context);
+    if (file) std::fclose(file);
+}
+
+int copy_entry(struct archive* reader, const std::string& target, ExtractState& state,
+               char* err, unsigned cap) {
+    std::FILE* file = std::fopen(target.c_str(), "wb");
+    if (!file) {
+        set_error(err, cap, "cannot create " + target);
+        return 1;
+    }
+    char buffer[65536];
+    for (;;) {
+        ssize_t read = archive_read_data(reader, buffer, sizeof buffer);
+        if (read < 0) {
+            std::fclose(file);
+            set_error(err, cap, archive_error(reader));
+            return 1;
+        }
+        if (read == 0) break;
+        state.total += static_cast<unsigned long long>(read);
+        if (state.total > kMaxTotalBytes) {
+            std::fclose(file);
+            set_error(err, cap, "archive expands beyond the size limit");
+            return 1;
+        }
+        if (std::fwrite(buffer, 1, static_cast<size_t>(read), file) !=
+            static_cast<size_t>(read)) {
+            std::fclose(file);
+            set_error(err, cap, "cannot write " + target);
+            return 1;
+        }
+    }
+    if (std::fclose(file) != 0) {
+        set_error(err, cap, "cannot close " + target);
+        return 1;
+    }
+    return 0;
+}
+
+}  // namespace
+
+extern "C" {
+
+int be_archive_probe(const char* path) {
+    if (!path || path[0] == 0) return 0;
+    struct archive* reader = archive_read_new();
+    if (!reader) return 0;
+    archive_read_support_filter_all(reader);
+    archive_read_support_format_all(reader);
+    struct archive_entry* entry = nullptr;
+    int recognized = 0;
+    if (archive_read_open_filename(reader, path, 65536) == ARCHIVE_OK) {
+        if (archive_read_next_header(reader, &entry) == ARCHIVE_OK && entry != nullptr) {
+            recognized = 1;
+        }
+    }
+    archive_read_free(reader);
+    return recognized;
+}
+
+int be_archive_extract(const char* path, const char* out_dir,
+                       char* err, unsigned int err_cap) {
+    if (!path || path[0] == 0 || !out_dir || out_dir[0] == 0) {
+        set_error(err, err_cap, "path/out_dir must not be empty");
+        return 2;
+    }
+    std::error_code ec;
+    const fs::path root(out_dir);
+    if (!fs::create_directories(root, ec) && !fs::is_directory(root)) {
+        set_error(err, err_cap, "cannot create output directory");
+        return 1;
+    }
+    struct archive* reader = archive_read_new();
+    if (!reader) {
+        set_error(err, err_cap, "cannot allocate archive reader");
+        return 1;
+    }
+    archive_read_support_filter_all(reader);
+    archive_read_support_format_all(reader);
+    if (archive_read_open_filename(reader, path, 65536) != ARCHIVE_OK) {
+        set_error(err, err_cap, archive_error(reader));
+        archive_read_free(reader);
+        return 3;
+    }
+    ExtractState state;
+    int result = 0;
+    struct archive_entry* entry = nullptr;
+    for (;;) {
+        int status = archive_read_next_header(reader, &entry);
+        if (status == ARCHIVE_EOF) break;
+        if (status != ARCHIVE_OK && status != ARCHIVE_WARN) {
+            state.error = archive_error(reader);
+            result = 1;
+            break;
+        }
+        if (++state.entries > kMaxEntries) {
+            state.error = "too many archive entries";
+            result = 1;
+            break;
+        }
+        const char* name = archive_entry_pathname(entry);
+        if (archive_entry_is_encrypted(entry)) {
+            state.error = "encrypted archive entries are not supported";
+            result = 1;
+            break;
+        }
+        if (!safe_relative_path(name)) {
+            state.error = std::string("unsafe archive entry: ") + (name ? name : "");
+            result = 1;
+            break;
+        }
+        const fs::path target = root / fs::path(name);
+        if (archive_entry_filetype(entry) == AE_IFDIR) {
+            fs::create_directories(target, ec);
+            archive_read_data_skip(reader);
+            continue;
+        }
+        if (archive_entry_filetype(entry) != AE_IFREG) {
+            // Symlinks, devices and hardlinks never belong in a model package.
+            archive_read_data_skip(reader);
+            continue;
+        }
+        fs::create_directories(target.parent_path(), ec);
+        if (copy_entry(reader, target, state, err, err_cap) != 0) {
+            result = 1;
+            break;
+        }
+    }
+    if (result != 0 && state.error.find_first_not_of(" \t") != std::string::npos) {
+        set_error(err, err_cap, state.error);
+    }
+    archive_read_close(reader);
+    archive_read_free(reader);
+    return result;
+}
+
+}  // extern "C"
