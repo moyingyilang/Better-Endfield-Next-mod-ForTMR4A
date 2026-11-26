@@ -36,3 +36,15 @@
 - 选择持久化：`uidesign` 设置（key `ui.design_system`），试点页内置切换器；
 - **MIUIX 依赖固定 `top.yukonga.miuix.kmp:miuix-android:0.7.2`**：AGP 9.1 内置 Kotlin 2.2.10 只能读 2.2.x metadata，0.8+ 用 Kotlin 2.3/2.4 编译会拒绝；升级 AGP 之前不要升 Miuix；
 - 新增 UI 一律 Kotlin + 语义组件；旧 Java/XML 页替换时只改 `BemInstallPage` 等入口，不动导入逻辑。
+
+## 页面替换进度（2026-11-26）
+
+| 页面 | 状态 |
+|---|---|
+| 模型页（试点） | ✅ Compose，三设计系统可切换 |
+| 导入资源包页 | ✅ Compose `ui/import/ImportActivity.kt`，经 `ImportRepository` 调共享导入 worker；支持选择文件/状态/进度/取消/已安装列表；模型页入口已切换 |
+| 主壳 / 设置 / 关于 | ⏳ Java/XML 保留 |
+| 增强设置、MMD 导入/库、媒体屏、外观组合、模型预览 | ⏳ Java/XML 保留 |
+
+逻辑层已 Kotlin 化的部分：`ImportRepository`（`ImportState` / `InstalledModel`），UI 不再直接引用 `BemInstallActivity`。
+下一步：`ResourceRepository`（资源包/版本）、主壳 Compose、设置页。

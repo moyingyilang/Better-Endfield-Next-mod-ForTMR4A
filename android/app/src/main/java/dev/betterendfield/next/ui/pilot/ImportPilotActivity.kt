@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.betterendfield.next.BemInstallActivity
 import dev.betterendfield.next.ui.design.DesignButton
 import dev.betterendfield.next.ui.design.DesignCard
 import dev.betterendfield.next.ui.design.DesignRow
@@ -35,6 +34,7 @@ import dev.betterendfield.next.ui.design.DesignScreen
 import dev.betterendfield.next.ui.design.DesignSystem
 import dev.betterendfield.next.ui.design.DesignText
 import dev.betterendfield.next.ui.design.DesignTheme
+import dev.betterendfield.next.ui.import.ImportActivity
 import java.io.File
 
 /**
@@ -63,7 +63,7 @@ class ImportPilotActivity : ComponentActivity() {
                         },
                         onClose = { finish() },
                         onImport = {
-                            startActivity(Intent(context, BemInstallActivity::class.java))
+                            startActivity(Intent(context, ImportActivity::class.java))
                         },
                     )
                 }
