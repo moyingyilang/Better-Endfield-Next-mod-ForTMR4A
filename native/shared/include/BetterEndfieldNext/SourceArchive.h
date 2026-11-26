@@ -14,11 +14,14 @@ extern "C" {
 
 /* 1 when libarchive can open the file and read its first entry, 0 otherwise. */
 int be_archive_probe(const char *path);
+int be_archive_probe_fd(int fd);
 
 /* Extract into out_dir. Returns 0 on success, 1 on error, 2 on bad arguments,
  * 3 when the archive is not supported. Error text goes to err. */
 int be_archive_extract(const char *path, const char *out_dir,
                        char *err, unsigned int err_cap);
+int be_archive_extract_fd(int fd, const char *out_dir,
+                          char *err, unsigned int err_cap);
 
 #ifdef __cplusplus
 }

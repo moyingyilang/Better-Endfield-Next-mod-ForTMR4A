@@ -2,6 +2,8 @@ package dev.betterendfield.next;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -40,6 +42,8 @@ final class BemSource {
     private static native String convertToBem(String source, String catalogDir, String outPath);
     private static native int probeArchive(String path);
     private static native String extractArchive(String source, String outDir);
+    private static native int probeArchiveFd(int fd);
+    private static native String extractArchiveFd(int fd, String outDir);
 
     /** Raised when a source is recognized but conversion fails. */
     static final class Failure extends IOException {
@@ -53,20 +57,59 @@ final class BemSource {
     static File prepare(Context context, Uri uri, File stage) throws IOException {
         Context app = context.getApplicationContext();
         BemInstaller.loadCodec();
+
+        // Fast path: stream the picked document through the archiver instead of
+        // copying the whole package to a staging file first. This removes one
+        // full read+write of every RAR/7z/ZIP package on the import path.
+        try (ParcelFileDescriptor descriptor = app.getContentResolver().openFileDescriptor(uri, "r")) {
+            if (descriptor != null) {
+                int fd = descriptor.getFd();
+                if (probeArchiveFd(fd) == 1) {
+                    File extracted = new File(stage, "extracted");
+                    long started = SystemClock.elapsedRealtime();
+                    String error = extractArchiveFd(fd, extracted.getAbsolutePath());
+                    if (error != null) throw new Failure(error);
+                    logStage("extract-fd", started, extracted);
+                    File candidate = findSource(extracted, 0);
+                    if (candidate != null) return toBem(app, candidate, stage);
+                }
+            }
+        } catch (Failure failure) {
+            throw failure;
+        } catch (IOException | RuntimeException unavailable) {
+            // Descriptor unavailable or grant revoked: fall back to a copy.
+            android.util.Log.i("BetterEndfieldNext.Import",
+                    "stage=fd-unavailable " + unavailable.getClass().getSimpleName());
+        }
+
         File raw = new File(stage, "source.bin");
+        long started = SystemClock.elapsedRealtime();
         try (InputStream input = app.getContentResolver().openInputStream(uri);
              OutputStream output = new FileOutputStream(raw)) {
             if (input == null) throw new IOException(Text.of("无法打开包"));
             copy(input, output, 8L * 1024 * 1024 * 1024);
         }
+        logStage("copy", started, raw);
         File candidate = locate(raw, stage);
-        if (candidate == null) return null;
+        return candidate == null ? null : toBem(app, candidate, stage);
+    }
+
+    private static File toBem(Context app, File candidate, File stage) throws IOException {
         if (isBem(candidate)) return candidate;
+        long started = SystemClock.elapsedRealtime();
         File out = new File(stage, "converted.bem");
         String error = convertToBem(candidate.getAbsolutePath(), ensureCatalog(app).getAbsolutePath(),
                 out.getAbsolutePath());
         if (error != null) throw new Failure(error);
+        logStage("convert", started, out);
         return out.isFile() && out.length() > 0 ? out : null;
+    }
+
+    private static void logStage(String stage, long startedMillis, File file) {
+        long bytes = file == null ? 0 : (file.isFile() ? file.length() : 0);
+        android.util.Log.i("BetterEndfieldNext.Import",
+                "stage=" + stage + " ms=" + (SystemClock.elapsedRealtime() - startedMillis)
+                        + " bytes=" + bytes);
     }
 
     private static File locate(File raw, File stage) throws IOException {

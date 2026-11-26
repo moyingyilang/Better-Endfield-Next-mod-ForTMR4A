@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <thread>
 
 namespace betterendfieldnext {
 using J=BetterEndfieldNext::CustomModel::BemJson;
@@ -198,7 +199,8 @@ void ConvertInstalledTexture(const J& manifest,J& texture,std::vector<uint8_t>& 
     if(astc) {
         check(astcenc_config_init(srgb?ASTCENC_PRF_LDR_SRGB:ASTCENC_PRF_LDR,block,block,1,ASTCENC_PRE_FAST,0,&config));
         config.progress_callback=reportProgress;
-        astcenc_context* raw=nullptr;check(astcenc_context_alloc(&config,1,&raw));context.reset(raw);
+        const unsigned threads=std::max(1u,std::min(4u,std::thread::hardware_concurrency()));
+        astcenc_context* raw=nullptr;check(astcenc_context_alloc(&config,threads,&raw));context.reset(raw);
     }
     std::vector<uint8_t> output;size_t pos=0;
     for(unsigned m=0;m<base;++m) pos+=mipSize(format,std::max(w>>m,1u),std::max(h>>m,1u));
@@ -265,7 +267,8 @@ bool RepairNormalTexture(const J& manifest,J& texture,std::vector<uint8_t>& byte
     if(astc) {
         check(astcenc_config_init(ASTCENC_PRF_LDR,block,block,1,ASTCENC_PRE_FAST,0,&config));
         config.progress_callback=reportProgress;
-        astcenc_context* raw=nullptr;check(astcenc_context_alloc(&config,1,&raw));context.reset(raw);
+        const unsigned threads=std::max(1u,std::min(4u,std::thread::hardware_concurrency()));
+        astcenc_context* raw=nullptr;check(astcenc_context_alloc(&config,threads,&raw));context.reset(raw);
     }
     std::vector<uint8_t> output;size_t pos=0;
     for(unsigned m=0;m<mips;++m) {

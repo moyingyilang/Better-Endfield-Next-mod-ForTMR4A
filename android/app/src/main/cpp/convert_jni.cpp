@@ -41,6 +41,23 @@ JNIEXPORT jint JNICALL Java_dev_betterendfield_next_BemSource_probeArchive(
     return be_archive_probe(source.c_str());
 }
 
+JNIEXPORT jint JNICALL Java_dev_betterendfield_next_BemSource_probeArchiveFd(
+    JNIEnv*, jclass, jint fd) {
+    return be_archive_probe_fd(static_cast<int>(fd));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemSource_extractArchiveFd(
+    JNIEnv* env, jclass, jint fd, jstring out_dir) {
+    const std::string out = from_java(env, out_dir);
+    if (out.empty()) return env->NewStringUTF("outDir must not be empty");
+    char err[512] = {0};
+    const int rc = be_archive_extract_fd(static_cast<int>(fd), out.c_str(),
+                                         err, static_cast<unsigned>(sizeof err));
+    if (rc == 0) return nullptr;
+    if (err[0] == 0) return env->NewStringUTF("archive extraction failed");
+    return env->NewStringUTF(err);
+}
+
 JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemSource_extractArchive(
     JNIEnv* env, jclass, jstring source, jstring out_dir) {
     const std::string src = from_java(env, source);

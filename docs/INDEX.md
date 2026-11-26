@@ -36,3 +36,4 @@
 - [UPSTREAM-SYNC](workspace/UPSTREAM-SYNC.md) — 官方上游同步流程
 - [KOTLIN-MIGRATION](workspace/KOTLIN-MIGRATION.md) — Java→Kotlin 迁移计划
 - [VERSIONING](workspace/VERSIONING.md) — 版本号规则（semver + ts/sha/build 元数据）
+- [PERFORMANCE](workspace/PERFORMANCE.md) — 导入链路基准与效率优化记录
