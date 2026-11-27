@@ -61,10 +61,28 @@
 su -c 'logcat -d -s BetterEndfieldNext.Import BetterEndfieldNext.Install'
 ```
 
+## 2026-11-27 第三轮：BEM 读取与 payload 拷贝
+
+| 优化 | 说明 | 宿主实测（同一 harness，两次取均值，含波动） |
+|---|---|---|
+| **mmap 读 BEM** | `File()` 改为只读 mmap（Linux/Android），payload 读取从 seek+read 变成 memcpy；Windows/其它平台保留 ifstream | — |
+| **已压缩 payload 流式复制** | codec=1 的 payload 不再整块读入内存再写 spool，按 1 MiB 分块直接落盘 | — |
+| **spool→输出缓冲 64 KiB → 1 MiB** | 少一个数量级的系统调用 | — |
+| **raw payload 压缩级 9 → 3** | 大几何 payload 压缩更快，输出体积基本不变（测试样本 35 MB 不变） | — |
+
+宿主 rewrite harness（含 5 纹理转换回调）对比：
+
+| 输入 | 旧 | 新 |
+|---|---|---|
+| 26 MB BEM（`lvtsfw_eff_diag`） | 1270 ms | **920 ms** |
+| 73 MB BEM（`edmin_conv`） | 2559 ms | **2397 ms** |
+
+注意：宿主计时噪声较大（磁盘缓存/温度），只用于确认方向；设备仍以 `stage=` 日志为准。
+
 ## 下一批候选（按收益排序）
 
-1. **纹理批量并行**：当前按纹理串行 + 单纹内部多线程；可改成纹理间并行（内存允许时），
-   对 15+ 纹理的包收益最大；
+1. **几何 payload 压缩并行**：当前 spool 写入/压缩串行，大 BEM 里 50+ payload 可并行压缩、
+   按序落盘（与纹理并行同一套预算思路）；
 2. **BEM 写入去重**：转换产物写一次、安装校验后再写一次；评估把校验+安装合并为一次流式；
 3. **BEM 读取 mmap**：`bem.cpp` 目前 `ifstream` + seek/read，大包可改只读 mmap 减少拷贝；
 4. **zstd 多线程解压**：BEM zstd payload 可 `ZSTD_decompressDCtx` 多线程（流式格式需评估）；

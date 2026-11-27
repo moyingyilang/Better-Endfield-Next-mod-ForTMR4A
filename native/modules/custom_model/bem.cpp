@@ -12,6 +12,12 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#if defined(__linux__) || defined(__ANDROID__)
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -1335,15 +1341,41 @@ struct Container {
 };
 template<class F> bool File(const std::filesystem::path& path,std::string& error,F action,bool skip_validation=false,bool loading_optimization=false,bool defer_textures=false,bool manifest_only=false) {
     error.clear(); try {
-        std::ifstream in(path,std::ios::binary|std::ios::ate); Check(bool(in),"BEM package cannot be opened");
-        auto size=in.tellg(); Check(size>=0,"BEM size unavailable"); Container c; c.skip_validation=skip_validation; c.loading_optimization=loading_optimization;
+        Container c; c.skip_validation=skip_validation; c.loading_optimization=loading_optimization;
         c.deferTextures=defer_textures;
         c.manifestOnly=manifest_only;
+#if defined(__linux__) || defined(__ANDROID__)
+        // Read-only mmap: payload reads become memcpy instead of seek+read syscalls.
+        struct Mapping {
+            void* data=nullptr; size_t size=0; int fd=-1;
+            ~Mapping() { if(data && data!=MAP_FAILED) munmap(data,size); if(fd>=0) close(fd); }
+        } mapping;
+        mapping.fd=open(path.c_str(),O_RDONLY|O_CLOEXEC);
+        Check(mapping.fd>=0,"BEM package cannot be opened");
+        struct stat status{};
+        Check(fstat(mapping.fd,&status)==0 && status.st_size>=0,"BEM size unavailable");
+        mapping.size=static_cast<size_t>(status.st_size);
+        if(mapping.size) {
+            mapping.data=mmap(nullptr,mapping.size,PROT_READ,MAP_PRIVATE,mapping.fd,0);
+            Check(mapping.data!=MAP_FAILED,"BEM package cannot be mapped");
+        }
+        const size_t mappedSize=mapping.size;
+        const char* mapped=static_cast<const char*>(mapping.data);
+        c.read=[mapped,mappedSize](uint64_t off,size_t count) {
+            Check(off<=mappedSize && count<=mappedSize-off,"Truncated BEM");
+            std::vector<uint8_t> bytes(count);
+            if(count) std::memcpy(bytes.data(),mapped+off,count);
+            return bytes; };
+        c.Open(static_cast<uint64_t>(mappedSize)); action(c); return true;
+#else
+        std::ifstream in(path,std::ios::binary|std::ios::ate); Check(bool(in),"BEM package cannot be opened");
+        auto size=in.tellg(); Check(size>=0,"BEM size unavailable");
         c.read=[&](uint64_t off,size_t count) {
             Check(off<=static_cast<uint64_t>(size) && count<=static_cast<uint64_t>(size)-off,"Truncated BEM");
             std::vector<uint8_t> bytes(count); in.seekg(static_cast<std::streamoff>(off));
             Check(bool(in.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(count))),"BEM read failed"); return bytes; };
         c.Open(static_cast<uint64_t>(size)); action(c); return true;
+#endif
     } catch(const std::exception& e) { error=e.what(); return false; }
 }
 }
@@ -1837,12 +1869,28 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
         auto copy=[&](BemJson& ref) {
             auto old=U(ref); auto it=copied.find(old);
             if(it==copied.end()) { checkpoint(); const auto& e=c.directory.at(old);
+                if(e.codec==1) {
+                    // Already zstd: stream the stored bytes straight into the spool
+                    // instead of materialising the whole payload in memory.
+                    Check(entries.size()<c.limits.directory,"Installed payload directory exceeds limit");
+                    auto id=entries.size(); entries.push_back({e.codec,0,0,e.stored,e.decoded});
+                    for(uint64_t pos=0;pos<e.stored;) {
+                        checkpoint();
+                        auto chunk=c.read(e.offset+pos,size_t(std::min<uint64_t>(1ull<<20,e.stored-pos)));
+                        data.write(reinterpret_cast<const char*>(chunk.data()),chunk.size());
+                        Check(bool(data),"Staging disk write failed");
+                        pos+=chunk.size();
+                    }
+                    it=copied.emplace(old,id).first;
+                    ref=it->second;
+                    return;
+                }
                 auto bytes=c.Stored(old); auto codec=e.codec;
                 // ZIP payloads are stored raw, so an installed package would balloon.
                 // Compress them here to keep the rewritten package at normal size.
                 if(!codec && !bytes.empty()) {
                     std::vector<uint8_t> packed(ZSTD_compressBound(bytes.size()));
-                    auto written=ZSTD_compress(packed.data(),packed.size(),bytes.data(),bytes.size(),9);
+                    auto written=ZSTD_compress(packed.data(),packed.size(),bytes.data(),bytes.size(),3);
                     if(!ZSTD_isError(written) && written<bytes.size()) {
                         packed.resize(written); bytes.swap(packed); codec=1;
                     }
@@ -1979,8 +2027,8 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
         std::ofstream out(output,std::ios::binary); Check(bool(out),"Cannot create installed package");
         out.write(reinterpret_cast<const char*>(&header),sizeof(header)); out.write(json.data(),json.size());
         out.write(reinterpret_cast<const char*>(entries.data()),entries.size()*sizeof(Entry));
-        std::ifstream payloads(spool,std::ios::binary); std::array<char,65536> buffer{};
-        while(payloads) {checkpoint();payloads.read(buffer.data(),buffer.size());out.write(buffer.data(),payloads.gcount());}
+        std::ifstream payloads(spool,std::ios::binary); std::vector<char> buffer(1u<<20);
+        while(payloads) {checkpoint();payloads.read(buffer.data(),std::streamsize(buffer.size()));out.write(buffer.data(),payloads.gcount());}
         Check(payloads.eof(),"Staging read failed"); out.close(); Check(bool(out),"Installed package flush failed");
         for(const auto& appearance:validationSelections) {checkpoint();BemPocData parsed;std::string failure;
             // Evaluate the load before building the message: argument evaluation order is
