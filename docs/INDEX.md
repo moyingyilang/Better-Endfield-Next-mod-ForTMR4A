@@ -37,3 +37,4 @@
 - [KOTLIN-MIGRATION](workspace/KOTLIN-MIGRATION.md) — Java→Kotlin 迁移计划
 - [VERSIONING](workspace/VERSIONING.md) — 版本号规则（semver + ts/sha/build 元数据）
 - [PERFORMANCE](workspace/PERFORMANCE.md) — 导入链路基准与效率优化记录
+- [MOD_REPACK_TEXTURE_PIPELINE](workspace/MOD_REPACK_TEXTURE_PIPELINE.md) — mod 重打包与纹理全线路（基础版，可导出 Word）
