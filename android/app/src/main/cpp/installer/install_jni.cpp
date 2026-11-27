@@ -2,6 +2,7 @@
 #include "bem_baseline_table.generated.h"
 #include <jni.h>
 #include <atomic>
+#include <thread>
 #include <stdexcept>
 namespace { std::atomic_bool cancelled{false},busy{false};
 struct Utf {JNIEnv* env;jstring value;const char* data;Utf(JNIEnv* e,jstring v):env(e),value(v),data(e->GetStringUTFChars(v,nullptr)) {if(!data) throw std::runtime_error("Cannot read JNI string");}~Utf(){env->ReleaseStringUTFChars(value,data);}};
@@ -120,12 +121,14 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_c
         auto progressMethod=env->GetStaticMethodID(owner,"conversionProgress","(Ljava/lang/String;IIIIF)V");
         if(!progressMethod) return nullptr;
         unsigned textureIndex=0,convertedCount=0,keptCount=0;
+        const std::thread::id mainThread=std::this_thread::get_id();
         std::string report,error;
         bool ok=BetterEndfieldNext::CustomModel::RewriteBemTextures(input.data,output.data,
             [&](const auto& manifest,auto& texture,auto& bytes) {
                 ++textureIndex;
                 auto name=texture.at("original_name").template get<std::string>();
                 auto progress=[&](unsigned mip,unsigned mips,float percent) {
+                    if(std::this_thread::get_id()!=mainThread) return; // parallel workers: no JNI calls
                     auto label=env->NewStringUTF(name.c_str());
                     if(!label) throw std::runtime_error("Cannot report conversion progress");
                     env->CallStaticVoidMethod(owner,progressMethod,label,jint(textureIndex),jint(manifest.at("textures").size()),jint(mip),jint(mips),jfloat(percent));

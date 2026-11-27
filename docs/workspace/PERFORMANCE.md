@@ -43,6 +43,7 @@
 | **混合 texture_mode** | 转换报告新增 `converted_textures/kept_textures`，安装记录写 `original/mixed/astc/rgba32` | 可观测真实转码范围，便于验收 |
 | **保留纹理零解码** | `RewriteBemTextures` 增加 `keep` 预判：设备支持的纹理直接复制原 payload，**不解码、不做格式检测**（BC 解码是大头） | 大部分纹理保留的包，CPU 时间显著下降 |
 | **转换不落临时副本** | 转换已安装包时直接从 `bem-installed/<gen>/installed.bem` 读取，不再先复制一份到 stage | 省掉 70 MB 级包的一次整包写+读 |
+| **纹理级受控并行** | 待转换纹理按批并行（最多 4 worker，受 CPU 与 64 MB 解码预算双重限制，payload 顺序确定）；进度回调仅由主 worker 调 JNI | 多张小纹理的包转码时间近似按 worker 数缩短；预算保证峰值内存不超过串行水平 |
 
 ## 已完成优化（2026-11-26）
 

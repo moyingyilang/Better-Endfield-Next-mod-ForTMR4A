@@ -5,6 +5,9 @@
 #include "../../shared/third_party/zstd/lib/zstd.h"
 #include "../../shared/third_party/miniz/miniz.h" 
 #include <algorithm>
+#include <atomic>
+#include <exception>
+#include <thread>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -13,6 +16,7 @@
 #include <set>
 #include <stdexcept>
 #include <functional>
+#include <mutex>
 #include <limits>
 #include <optional>
 #include <charconv>
@@ -1860,37 +1864,106 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
         if(!c.minor) for(auto& appearance:manifest["appearances"]) if(appearance.contains("preview")) copy(appearance["preview"]);
         BemJson changes=BemJson::array();
         // Identical texture descriptors share converted output; geometry/texture aliases are kept separate.
-        std::map<std::string,BemJson> converted;
-        for(auto& texture:manifest["textures"]) {
-            checkpoint(); auto key=texture.dump(); auto found=converted.find(key);
-            if(found!=converted.end()) { texture=found->second; continue; }
-            auto original=texture; auto id=U(texture.at("payload"));
+        struct PendingTexture {
+            size_t index = 0;
+            std::string key;
+            BemJson texture;
+            BemJson original;
+            std::vector<uint8_t> bytes;
+        };
+        std::vector<PendingTexture> pending;
+        std::map<std::string,BemJson> results;   // original descriptor key -> final texture
+        const size_t noDuplicate = std::numeric_limits<size_t>::max();
+        std::vector<size_t> duplicateOf(manifest["textures"].size(), noDuplicate);
+        std::map<std::string,size_t> firstSeen;
+        for(size_t index=0; index<manifest["textures"].size(); ++index) {
+            checkpoint();
+            auto& texture=manifest["textures"][index];
+            auto key=texture.dump();
+            auto found=firstSeen.find(key);
+            if(found!=firstSeen.end()) { duplicateOf[index]=found->second; continue; }
+            firstSeen.emplace(key,index);
             if(keep && keep(texture)) {
                 // Nothing to convert: copy the stored payload without decoding it.
                 copy(texture["payload"]);
+                results.emplace(std::move(key),texture);
                 continue;
             }
-            c.cache.clear(); c.decoded=0;
-            auto bytes=c.Payload(id,c.directory.at(id).decoded); c.cache.clear();
-            Check(bytes.size()<=c.limits.textureBytes,"Texture exceeds format limit");
-            transform(c.manifest,texture,bytes);
-            Check(!bytes.empty() && bytes.size()<=c.limits.textureBytes,"Converted texture exceeds format limit");
-            if(texture == original) {
-                copy(texture["payload"]);
-            } else {
-                size_t bound = ZSTD_compressBound(bytes.size());
-                std::vector<uint8_t> compressed(bound);
-                size_t cSize = ZSTD_compress(compressed.data(), compressed.size(), bytes.data(), bytes.size(), 3);
-                if (!ZSTD_isError(cSize) && cSize < bytes.size()) {
-                    compressed.resize(cSize);
-                    texture["payload"] = append(1, bytes.size(), compressed);
-                } else {
-                    texture["payload"] = append(0, bytes.size(), bytes);
-                }
+            PendingTexture job; job.index=index; job.key=std::move(key);
+            job.texture=texture; job.original=texture;
+            pending.push_back(std::move(job));
+        }
+        // Convert textures in bounded batches: workers are capped by CPU and by a
+        // decoded-bytes budget, and payload order stays deterministic.
+        const unsigned workerCount=std::max(1u,std::min(4u,std::thread::hardware_concurrency()/2u));
+        constexpr size_t decodedBudget=64ull*1024*1024;
+        size_t begin=0;
+        while(begin<pending.size()) {
+            size_t end=begin;
+            size_t decodedBytes=0;
+            while(end<pending.size() && end-begin<workerCount) {
+                const auto id=U(pending[end].texture.at("payload"));
+                const auto storedDecoded=c.directory.at(id).decoded;
+                if(end>begin && decodedBytes+storedDecoded>decodedBudget) break;
+                c.cache.clear(); c.decoded=0;
+                pending[end].bytes=c.Payload(id,storedDecoded);
+                c.cache.clear();
+                Check(pending[end].bytes.size()<=c.limits.textureBytes,"Texture exceeds format limit");
+                decodedBytes+=pending[end].bytes.size();
+                ++end;
             }
-            converted.emplace(key,texture);
-            changes.push_back({{"name",texture.at("original_name")},{"source_format",original.at("format")},
-                {"format",texture.at("format")},{"bytes",bytes.size()}});
+            std::atomic<size_t> nextJob{begin};
+            std::exception_ptr failure;
+            std::mutex failureMutex;
+            auto work=[&] {
+                for(;;) {
+                    const size_t index=nextJob.fetch_add(1);
+                    if(index>=end) return;
+                    try {
+                        transform(c.manifest,pending[index].texture,pending[index].bytes);
+                        Check(!pending[index].bytes.empty() && pending[index].bytes.size()<=c.limits.textureBytes,
+                              "Converted texture exceeds format limit");
+                    } catch(...) {
+                        std::lock_guard<std::mutex> lock(failureMutex);
+                        if(!failure) failure=std::current_exception();
+                        return;
+                    }
+                }
+            };
+            std::vector<std::thread> helpers;
+            for(unsigned worker=1; worker<workerCount; ++worker) helpers.emplace_back(work);
+            work();
+            for(auto& helper:helpers) helper.join();
+            if(failure) std::rethrow_exception(failure);
+            for(size_t index=begin; index<end; ++index) {
+                auto& job=pending[index];
+                auto& texture=manifest["textures"][job.index];
+                texture=job.texture;
+                if(texture==job.original) {
+                    copy(texture["payload"]);
+                } else {
+                    size_t bound = ZSTD_compressBound(job.bytes.size());
+                    std::vector<uint8_t> compressed(bound);
+                    size_t cSize = ZSTD_compress(compressed.data(), compressed.size(), job.bytes.data(), job.bytes.size(), 3);
+                    if (!ZSTD_isError(cSize) && cSize < job.bytes.size()) {
+                        compressed.resize(cSize);
+                        texture["payload"] = append(1, job.bytes.size(), compressed);
+                    } else {
+                        texture["payload"] = append(0, job.bytes.size(), job.bytes);
+                    }
+                }
+                results[job.key]=texture;
+                changes.push_back({{"name",texture.at("original_name")},{"source_format",job.original.at("format")},
+                    {"format",texture.at("format")},{"bytes",job.bytes.size()}});
+                job.bytes.clear();
+                job.bytes.shrink_to_fit();
+            }
+            begin=end;
+        }
+        for(size_t index=0; index<manifest["textures"].size(); ++index) {
+            if(duplicateOf[index]==noDuplicate) continue;
+            auto found=results.find(manifest["textures"][index].dump());
+            if(found!=results.end()) manifest["textures"][index]=found->second;
         }
         data.close(); Check(bool(data),"Payload flush failed"); checkpoint();
         bool astc=false; for(const auto& t:manifest["textures"]) if(U(t["format"])>=48 && U(t["format"])<=50) astc=true;
