@@ -164,6 +164,31 @@ void CancelTextureCompression() {
     if(activeContext) astcenc_compress_cancel(activeContext);
 }
 
+bool TextureCanBeKept(const J& texture,bool astc,unsigned supported_mask) {
+    try {
+        const auto w=texture.at("width").get<unsigned>(), h=texture.at("height").get<unsigned>(), mips=texture.at("mips").get<unsigned>();
+        const int format=texture.at("format").get<int>();
+        require(w && h && w<=32768 && h<=32768 && mips && mips<=16,"Invalid texture dimensions");
+        size_t size=0;
+        for(unsigned m=0;m<mips;++m) size+=mipSize(format,std::max(w>>m,1u),std::max(h>>m,1u));
+        const bool installable=w<=kInstalledTextureSize && h<=kInstalledTextureSize && size<=kInstalledTextureLimit;
+        if(!installable) return false;
+        switch(format) {
+            case 4: case 63: return true;
+            case 10: return (supported_mask & 1u) != 0;
+            case 12: return (supported_mask & 2u) != 0;
+            case 26: return (supported_mask & 4u) != 0;
+            case 27: return (supported_mask & 8u) != 0;
+            case 25: return (supported_mask & 16u) != 0;
+            case 48: case 49: case 50: return astc && (supported_mask & 32u) != 0;
+            default: return false;
+        }
+    } catch(...) {
+        // Let the conversion path produce the precise error.
+        return false;
+    }
+}
+
 void ConvertInstalledTexture(const J& manifest,J& texture,std::vector<uint8_t>& bytes,const J& rules,bool astc,
     unsigned supported_mask,const std::function<void()>& checkpoint,
     const std::function<void(unsigned, unsigned, float)>& progress) {

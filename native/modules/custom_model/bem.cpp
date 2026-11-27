@@ -1807,7 +1807,8 @@ bool InsertBemManifestField(const std::filesystem::path& input,const std::filesy
 }
 
 bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem::path& output,
-    const TextureTransform& transform,const std::function<void()>& checkpoint,std::string& report,std::string& error) {
+    const TextureTransform& transform,const std::function<void()>& checkpoint,std::string& report,std::string& error,
+    const std::function<bool(const BemJson&)>& keep) {
     // Caller owns a unique staging directory. Never overwrite a published package.
     if (std::filesystem::exists(output)) { error="Output already exists"; return false; }
     auto spool=output; spool += ".payloads";
@@ -1864,6 +1865,11 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
             checkpoint(); auto key=texture.dump(); auto found=converted.find(key);
             if(found!=converted.end()) { texture=found->second; continue; }
             auto original=texture; auto id=U(texture.at("payload"));
+            if(keep && keep(texture)) {
+                // Nothing to convert: copy the stored payload without decoding it.
+                copy(texture["payload"]);
+                continue;
+            }
             c.cache.clear(); c.decoded=0;
             auto bytes=c.Payload(id,c.directory.at(id).decoded); c.cache.clear();
             Check(bytes.size()<=c.limits.textureBytes,"Texture exceeds format limit");

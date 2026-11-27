@@ -425,18 +425,26 @@ final class BemInstaller {
                     if(previousEntry==null) throw new IOException(Text.of("模型包已被替换，请刷新后重试"));
                 }
                 File localSource=converting?new File(new File(root,previousGeneration),"installed.bem"):null;
-                if(converting && !localSource.isFile()) {
-                    if(!FrameworkSettings.isConnected()) status=Text.of("正在等待框架服务连接…");
-                    FrameworkSettings.awaitConnection();
-                    status=Text.of("正在准备纹理转换…");
-                }
-                try(InputStream in=converting
-                        ?(localSource.isFile()?new FileInputStream(localSource):FrameworkSettings.openBem("bem-"+previousGeneration+".bem"))
-                        :app.getContentResolver().openInputStream(uri); FileOutputStream out=new FileOutputStream(source)) {
-                    if(in==null) throw new IOException(Text.of("无法打开包"));
-                    if(converting) copy(in,out,BemImportStream.MAX_BYTES);
-                    else BemImportStream.copy(in,out,BemImportStream.MAX_BYTES,BemInstaller::checkpoint);
-                    out.getFD().sync();
+                boolean stagedCopy=false;
+                if(converting && localSource.isFile()) {
+                    // Convert straight from the installed copy: staging it would
+                    // write+read the whole package once more.
+                    source=localSource;
+                } else {
+                    if(converting) {
+                        if(!FrameworkSettings.isConnected()) status=Text.of("正在等待框架服务连接…");
+                        FrameworkSettings.awaitConnection();
+                        status=Text.of("正在准备纹理转换…");
+                    }
+                    try(InputStream in=converting
+                            ?FrameworkSettings.openBem("bem-"+previousGeneration+".bem")
+                            :app.getContentResolver().openInputStream(uri); FileOutputStream out=new FileOutputStream(source)) {
+                        if(in==null) throw new IOException(Text.of("无法打开包"));
+                        if(converting) copy(in,out,BemImportStream.MAX_BYTES);
+                        else BemImportStream.copy(in,out,BemImportStream.MAX_BYTES,BemInstaller::checkpoint);
+                        out.getFD().sync();
+                    }
+                    stagedCopy=true;
                 }
                 loadCodec();checkpoint();
                 JSONObject result;
@@ -448,7 +456,7 @@ final class BemInstaller {
                     result=new JSONObject(convertNative(source.getAbsolutePath(),output.getAbsolutePath(),
                             normalRules(app),astc,gpu.supportedMask()));
                     result.put("texture_mode",textureMode(result,astc));
-                    source.delete();
+                    if(stagedCopy) source.delete();
                 } else {
                     result=new JSONObject(inspectNativeWithOptions(source.getAbsolutePath(),skipValidation));
                     gpu=TextureSupport.probe(app);

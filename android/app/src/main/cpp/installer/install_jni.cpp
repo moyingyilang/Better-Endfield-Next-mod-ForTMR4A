@@ -137,7 +137,10 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_c
                     static_cast<unsigned>(supported_mask),checkpoint,progress);
                 if(texture.value("format",0)!=beforeFormat || bytes.size()!=beforeSize) ++convertedCount;
                 else ++keptCount;
-            },checkpoint,report,error);
+            },checkpoint,report,error,
+            [&](const auto& texture) {
+                return betterendfieldnext::TextureCanBeKept(texture,astc,static_cast<unsigned>(supported_mask));
+            });
         if(!ok) throw std::runtime_error(error);
         auto parsed=BetterEndfieldNext::CustomModel::BemJson::parse(report);
         parsed["converted_textures"]=convertedCount;

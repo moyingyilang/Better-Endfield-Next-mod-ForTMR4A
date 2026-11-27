@@ -41,6 +41,8 @@
 | **逐张纹理保留** | 包级“需要重写”只作为触发条件；native 转换按设备能力 mask **逐张跳过**已支持的格式（RGBA32/R8 永远保留；BC1/3/4/5/7/ASTC 按 mask） | 只有真正不支持的纹理才转码；混合格式包不再整包重编码，画质与耗时可降一个量级 |
 | **ASTC 上下文复用** | 按 `(profile, block)` 缓存 `astcenc_context`，不再每张纹理分配/释放 | 省掉每纹理 context 分配开销，纹理越多收益越大 |
 | **混合 texture_mode** | 转换报告新增 `converted_textures/kept_textures`，安装记录写 `original/mixed/astc/rgba32` | 可观测真实转码范围，便于验收 |
+| **保留纹理零解码** | `RewriteBemTextures` 增加 `keep` 预判：设备支持的纹理直接复制原 payload，**不解码、不做格式检测**（BC 解码是大头） | 大部分纹理保留的包，CPU 时间显著下降 |
+| **转换不落临时副本** | 转换已安装包时直接从 `bem-installed/<gen>/installed.bem` 读取，不再先复制一份到 stage | 省掉 70 MB 级包的一次整包写+读 |
 
 ## 已完成优化（2026-11-26）
 
