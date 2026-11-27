@@ -79,6 +79,21 @@ su -c 'logcat -d -s BetterEndfieldNext.Import BetterEndfieldNext.Install'
 
 注意：宿主计时噪声较大（磁盘缓存/温度），只用于确认方向；设备仍以 `stage=` 日志为准。
 
+## 2026-11-27 第四轮：几何 payload 并行压缩
+
+- `RewriteBemTextures` 的 raw payload（几何/预览等）改为 **并行压缩批次**：主线程按 manifest
+  顺序提交，worker（最多 4，64 MB 预算）并行读取+zstd 压缩，主线程按提交顺序写 spool；
+  已压缩（codec=1）payload 仍流式直拷；
+- 输出顺序/entry 目录确定，宿主 harness 两次输出 byte-identical；
+- 压缩级维持 3，样本输出体积与上一轮一致。
+
+宿主 rewrite harness（同一输入、含纹理转换回调）：
+
+| 输入 | 基线（round 2） | round 3（mmap+流式） | round 4（payload 并行） |
+|---|---|---|---|
+| 26 MB BEM | 1270 ms | 920 ms | **466–485 ms（-62%）** |
+| 73 MB BEM | 2559 ms | 2397 ms | **1306–1311 ms（-49%）** |
+
 ## 下一批候选（按收益排序）
 
 1. **几何 payload 压缩并行**：当前 spool 写入/压缩串行，大 BEM 里 50+ payload 可并行压缩、

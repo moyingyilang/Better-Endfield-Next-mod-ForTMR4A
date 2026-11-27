@@ -1859,19 +1859,87 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
         c.cache.clear(); c.decoded=0;
         std::ofstream data(spool,std::ios::binary); Check(bool(data),"Cannot create staging payloads");
         std::vector<Entry> entries;
+        std::function<void()> flushCopies;
         auto append=[&](uint32_t codec,uint64_t decoded,const std::vector<uint8_t>& bytes) {
+            if(flushCopies) flushCopies();
             Check(entries.size()<c.limits.directory,"Installed payload directory exceeds limit");
             auto id=entries.size(); entries.push_back({codec,0,0,bytes.size(),decoded});
             data.write(reinterpret_cast<const char*>(bytes.data()),bytes.size()); Check(bool(data),"Staging disk write failed");
             return id;
         };
         std::map<uint32_t,size_t> copied;
+        // Raw payloads are compressed in parallel batches, then written to the
+        // spool in submission order so the payload directory stays deterministic.
+        struct CopyJob { size_t entry; uint32_t old; std::vector<uint8_t> bytes; uint32_t codec=0; uint64_t stored=0; };
+        std::vector<CopyJob> copyJobs;
+#if defined(__linux__) || defined(__ANDROID__)
+        const unsigned copyWorkers=std::max(1u,std::min(4u,std::thread::hardware_concurrency()/2u));
+#else
+        const unsigned copyWorkers=1;
+#endif
+        flushCopies=[&] {
+            if(copyJobs.empty()) return;
+            constexpr uint64_t copyBudget=64ull*1024*1024;
+            size_t begin=0;
+            while(begin<copyJobs.size()) {
+                size_t end=begin; uint64_t rawBytes=0;
+                while(end<copyJobs.size() && end-begin<copyWorkers) {
+                    const auto& e=c.directory.at(copyJobs[end].old);
+                    if(end>begin && rawBytes+e.stored>copyBudget) break;
+                    rawBytes+=e.stored; ++end;
+                }
+                std::atomic<size_t> nextJob{begin};
+                std::exception_ptr failure;
+                std::mutex failureMutex;
+                auto work=[&] {
+                    for(;;) {
+                        const size_t index=nextJob.fetch_add(1);
+                        if(index>=end) return;
+                        try {
+                            auto& job=copyJobs[index];
+                            const auto& e=c.directory.at(job.old);
+                            auto raw=c.read(e.offset,static_cast<size_t>(e.stored));
+                            if(raw.empty()) { job.codec=0; job.stored=0; continue; }
+                            std::vector<uint8_t> packed(ZSTD_compressBound(raw.size()));
+                            const auto written=ZSTD_compress(packed.data(),packed.size(),raw.data(),raw.size(),3);
+                            if(!ZSTD_isError(written) && written<raw.size()) {
+                                packed.resize(written); job.codec=1; job.stored=written; job.bytes.swap(packed);
+                            } else {
+                                job.codec=0; job.stored=raw.size(); job.bytes.swap(raw);
+                            }
+                        } catch(...) {
+                            std::lock_guard<std::mutex> lock(failureMutex);
+                            if(!failure) failure=std::current_exception();
+                            return;
+                        }
+                    }
+                };
+                std::vector<std::thread> helpers;
+                for(unsigned worker=1;worker<copyWorkers;++worker) helpers.emplace_back(work);
+                work();
+                for(auto& helper:helpers) helper.join();
+                if(failure) std::rethrow_exception(failure);
+                for(size_t index=begin;index<end;++index) {
+                    auto& job=copyJobs[index];
+                    entries[job.entry].codec=job.codec;
+                    entries[job.entry].stored=job.stored;
+                    if(job.stored) {
+                        data.write(reinterpret_cast<const char*>(job.bytes.data()),static_cast<std::streamsize>(job.bytes.size()));
+                        Check(bool(data),"Staging disk write failed");
+                    }
+                    job.bytes.clear(); job.bytes.shrink_to_fit();
+                }
+                begin=end;
+            }
+            copyJobs.clear();
+        };
         auto copy=[&](BemJson& ref) {
             auto old=U(ref); auto it=copied.find(old);
             if(it==copied.end()) { checkpoint(); const auto& e=c.directory.at(old);
                 if(e.codec==1) {
                     // Already zstd: stream the stored bytes straight into the spool
                     // instead of materialising the whole payload in memory.
+                    flushCopies();
                     Check(entries.size()<c.limits.directory,"Installed payload directory exceeds limit");
                     auto id=entries.size(); entries.push_back({e.codec,0,0,e.stored,e.decoded});
                     for(uint64_t pos=0;pos<e.stored;) {
@@ -1885,17 +1953,12 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
                     ref=it->second;
                     return;
                 }
-                auto bytes=c.Stored(old); auto codec=e.codec;
-                // ZIP payloads are stored raw, so an installed package would balloon.
-                // Compress them here to keep the rewritten package at normal size.
-                if(!codec && !bytes.empty()) {
-                    std::vector<uint8_t> packed(ZSTD_compressBound(bytes.size()));
-                    auto written=ZSTD_compress(packed.data(),packed.size(),bytes.data(),bytes.size(),3);
-                    if(!ZSTD_isError(written) && written<bytes.size()) {
-                        packed.resize(written); bytes.swap(packed); codec=1;
-                    }
-                }
-                it=copied.emplace(old,append(codec,e.decoded,bytes)).first; }
+                Check(entries.size()<c.limits.directory,"Installed payload directory exceeds limit");
+                const auto id=entries.size();
+                entries.push_back({0,0,0,0,e.decoded});
+                copyJobs.push_back(CopyJob{id,old,{},0,0});
+                it=copied.emplace(old,id).first;
+            }
             ref=it->second;
         };
         auto manifest=c.manifest;
@@ -1910,6 +1973,7 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
         if(manifest.contains("mesh_deformations")) for(auto& channel:manifest["mesh_deformations"])
             for(auto& frame:channel["frames"]) if(frame.contains("payload")) copy(frame["payload"]);
         if(!c.minor) for(auto& appearance:manifest["appearances"]) if(appearance.contains("preview")) copy(appearance["preview"]);
+        flushCopies();
         BemJson changes=BemJson::array();
         // Identical texture descriptors share converted output; geometry/texture aliases are kept separate.
         struct PendingTexture {
@@ -2013,6 +2077,7 @@ bool RewriteBemTextures(const std::filesystem::path& input,const std::filesystem
             auto found=results.find(manifest["textures"][index].dump());
             if(found!=results.end()) manifest["textures"][index]=found->second;
         }
+        flushCopies();
         data.close(); Check(bool(data),"Payload flush failed"); checkpoint();
         bool astc=false; for(const auto& t:manifest["textures"]) if(U(t["format"])>=48 && U(t["format"])<=50) astc=true;
         if(astc && std::find(manifest["required_capabilities"].begin(),manifest["required_capabilities"].end(),"texture-astc")==manifest["required_capabilities"].end())
