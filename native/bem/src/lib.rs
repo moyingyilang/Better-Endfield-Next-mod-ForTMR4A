@@ -32,7 +32,7 @@ pub const MAX_ARRAY: usize = 4096;
 pub const MAX_NESTING: usize = 48;
 
 const BASE_CAPABILITIES: [&str; 3] = ["native-materials", "palette-u8", "indices-u32"];
-const KNOWN_CAPABILITIES: [&str; 14] = [
+const KNOWN_CAPABILITIES: [&str; 16] = [
     "native-materials",
     "palette-u8",
     "indices-u32",
@@ -47,6 +47,8 @@ const KNOWN_CAPABILITIES: [&str; 14] = [
     "static-meshes",
     "material-overrides-v1",
     "root-offset-v1",
+    "material-render-state-v1",
+    "dynamic-drivers-v1",
 ];
 
 /// 错误类型。文案面向包作者，包含字段与文件位置。
