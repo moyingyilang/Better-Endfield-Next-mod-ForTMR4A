@@ -51,6 +51,12 @@ final class TextureSupport {
             }
         }
 
+        /** Bit mask understood by the native texture converter (per-texture keep/skip). */
+        int supportedMask() {
+            return (bc1 ? 1 : 0) | (bc3 ? 2 : 0) | (bc4 ? 4 : 0) | (bc5 ? 8 : 0)
+                    | (bc7 ? 16 : 0) | (astc ? 32 : 0);
+        }
+
         String describe() {
             return "astc=" + (astc ? 1 : 0)
                     + " etc2=" + (etc2 ? 1 : 0)

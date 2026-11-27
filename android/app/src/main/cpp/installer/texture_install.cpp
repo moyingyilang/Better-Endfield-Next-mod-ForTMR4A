@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -28,6 +29,24 @@ struct CompressionScope {
 };
 void require(bool value,const char* message) {if(!value) throw std::runtime_error(message);}
 void check(astcenc_error error) {if(error!=ASTCENC_SUCCESS) throw std::runtime_error(astcenc_get_error_string(error));}
+// ASTC contexts are expensive to allocate and are reused across textures of the
+// same block size / colour space. Conversion is serialized by the JNI busy guard.
+std::mutex contextCacheMutex;
+std::map<unsigned,astcenc_context*> contextCache;
+astcenc_context* borrowContext(astcenc_profile profile,unsigned block) {
+    const unsigned key=(unsigned(profile)<<8)|block;
+    std::lock_guard<std::mutex> lock(contextCacheMutex);
+    auto found=contextCache.find(key);
+    if(found!=contextCache.end()) return found->second;
+    astcenc_config config{};
+    check(astcenc_config_init(profile,block,block,1,ASTCENC_PRE_FAST,0,&config));
+    config.progress_callback=reportProgress;
+    const unsigned threads=std::max(1u,std::min(4u,std::thread::hardware_concurrency()));
+    astcenc_context* raw=nullptr;
+    check(astcenc_context_alloc(&config,threads,&raw));
+    contextCache[key]=raw;
+    return raw;
+}
 size_t mipSize(int format,unsigned w,unsigned h) {
     switch(format) {
     case 4:return size_t(w)*h*4;
@@ -146,7 +165,7 @@ void CancelTextureCompression() {
 }
 
 void ConvertInstalledTexture(const J& manifest,J& texture,std::vector<uint8_t>& bytes,const J& rules,bool astc,
-    const std::function<void()>& checkpoint,
+    unsigned supported_mask,const std::function<void()>& checkpoint,
     const std::function<void(unsigned, unsigned, float)>& progress) {
     const auto w=texture.at("width").get<unsigned>(), h=texture.at("height").get<unsigned>(), mips=texture.at("mips").get<unsigned>();
     int format=texture.at("format").get<int>(); bool srgb=texture.at("srgb").get<bool>();
@@ -158,6 +177,21 @@ void ConvertInstalledTexture(const J& manifest,J& texture,std::vector<uint8_t>& 
         require(astc,"ASTC package requires an ASTC capable device");
         require(installable,"ASTC texture exceeds the Android 8192/64 MiB install limit");return;
     }
+    // Per-texture decision: keep anything this device can already sample. The
+    // whole-package rewrite is only a trigger; textures that pass stay untouched.
+    auto supported_by_device=[&](int fmt) -> bool {
+        switch(fmt) {
+            case 4: case 63: return true;              // RGBA32 / R8: core formats.
+            case 10: return (supported_mask & 1u) != 0;  // BC1
+            case 12: return (supported_mask & 2u) != 0;  // BC3
+            case 26: return (supported_mask & 4u) != 0;  // BC4
+            case 27: return (supported_mask & 8u) != 0;  // BC5
+            case 25: return (supported_mask & 16u) != 0; // BC7
+            case 48: case 49: case 50: return (supported_mask & 32u) != 0 && astc;
+            default: return false;
+        }
+    };
+    if(installable && supported_by_device(format)) return;
     std::string encoding=texture.value("normal_encoding",std::string{});
     std::string semantic=texture.value("semantic",std::string{});
     bool normal=semantic=="normal" || DetectNormalCandidate(texture, bytes.data(), format, w, h);
@@ -194,14 +228,7 @@ void ConvertInstalledTexture(const J& manifest,J& texture,std::vector<uint8_t>& 
         require(++skip<16,"Texture cannot be reduced to the Android install limit");
     }
     const unsigned base=std::min(skip,mips-1),factor=1u<<(skip-base),levels=levelsAfter(skip);
-    astcenc_config config{};
-    std::unique_ptr<astcenc_context,decltype(&astcenc_context_free)> context(nullptr,astcenc_context_free);
-    if(astc) {
-        check(astcenc_config_init(srgb?ASTCENC_PRF_LDR_SRGB:ASTCENC_PRF_LDR,block,block,1,ASTCENC_PRE_FAST,0,&config));
-        config.progress_callback=reportProgress;
-        const unsigned threads=std::max(1u,std::min(4u,std::thread::hardware_concurrency()));
-        astcenc_context* raw=nullptr;check(astcenc_context_alloc(&config,threads,&raw));context.reset(raw);
-    }
+    astcenc_context* context=astc?borrowContext(srgb?ASTCENC_PRF_LDR_SRGB:ASTCENC_PRF_LDR,block):nullptr;
     std::vector<uint8_t> output;size_t pos=0;
     for(unsigned m=0;m<base;++m) pos+=mipSize(format,std::max(w>>m,1u),std::max(h>>m,1u));
     for(unsigned m=0;m<levels;++m) {
@@ -228,12 +255,12 @@ void ConvertInstalledTexture(const J& manifest,J& texture,std::vector<uint8_t>& 
             const astcenc_swizzle swizzle{ASTCENC_SWZ_R,ASTCENC_SWZ_G,ASTCENC_SWZ_B,ASTCENC_SWZ_A};
             const std::function<void(float)> report=[&](float percent) {if(progress) progress(m+1,levels,percent);};
             {
-                CompressionScope scope(context.get(),report);
+                CompressionScope scope(context,report);
                 checkpoint();
-                check(astcenc_compress_image(context.get(),&image,&swizzle,output.data()+offset,count,0));
+                check(astcenc_compress_image(context,&image,&swizzle,output.data()+offset,count,0));
                 checkpoint();
             }
-            check(astcenc_compress_reset(context.get()));
+            check(astcenc_compress_reset(context));
         } else std::memcpy(output.data()+offset,rgba.data(),count);
         if(progress) progress(m+1,levels,100);
     }
@@ -262,14 +289,7 @@ bool RepairNormalTexture(const J& manifest,J& texture,std::vector<uint8_t>& byte
     require(size==bytes.size(),"Texture mip byte count mismatch");
 
     unsigned block=4; // Linear normal map always 4x4
-    astcenc_config config{};
-    std::unique_ptr<astcenc_context,decltype(&astcenc_context_free)> context(nullptr,astcenc_context_free);
-    if(astc) {
-        check(astcenc_config_init(ASTCENC_PRF_LDR,block,block,1,ASTCENC_PRE_FAST,0,&config));
-        config.progress_callback=reportProgress;
-        const unsigned threads=std::max(1u,std::min(4u,std::thread::hardware_concurrency()));
-        astcenc_context* raw=nullptr;check(astcenc_context_alloc(&config,threads,&raw));context.reset(raw);
-    }
+    astcenc_context* context=astc?borrowContext(ASTCENC_PRF_LDR,block):nullptr;
     std::vector<uint8_t> output;size_t pos=0;
     for(unsigned m=0;m<mips;++m) {
         checkpoint();
@@ -289,12 +309,12 @@ bool RepairNormalTexture(const J& manifest,J& texture,std::vector<uint8_t>& byte
             const astcenc_swizzle swizzle{ASTCENC_SWZ_R,ASTCENC_SWZ_G,ASTCENC_SWZ_B,ASTCENC_SWZ_A};
             const std::function<void(float)> report=[&](float percent) {if(progress) progress(m+1,mips,percent);};
             {
-                CompressionScope scope(context.get(),report);
+                CompressionScope scope(context,report);
                 checkpoint();
-                check(astcenc_compress_image(context.get(),&image,&swizzle,output.data()+offset,count,0));
+                check(astcenc_compress_image(context,&image,&swizzle,output.data()+offset,count,0));
                 checkpoint();
             }
-            check(astcenc_compress_reset(context.get()));
+            check(astcenc_compress_reset(context));
         } else std::memcpy(output.data()+offset,rgba.data(),count);
         if(progress) progress(m+1,mips,100);
     }

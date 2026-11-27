@@ -5,6 +5,7 @@ void CancelTextureCompression();
 void ConvertInstalledTexture(const BetterEndfieldNext::CustomModel::BemJson& manifest,
     BetterEndfieldNext::CustomModel::BemJson& texture, std::vector<uint8_t>& bytes,
     const BetterEndfieldNext::CustomModel::BemJson& rules, bool astc,
+    unsigned supported_mask,
     const std::function<void()>& checkpoint,
     const std::function<void(unsigned, unsigned, float)>& progress = {});
 bool RepairNormalTexture(const BetterEndfieldNext::CustomModel::BemJson& manifest,

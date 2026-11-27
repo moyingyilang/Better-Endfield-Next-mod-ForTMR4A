@@ -111,7 +111,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_i
         return env->NewStringUTF("written");
     } catch(const std::exception& error) {env->ThrowNew(env->FindClass("java/io/IOException"),error.what());return nullptr;}
 }
-extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_convertNative(JNIEnv* env,jclass owner,jstring src,jstring dst,jstring rules,jboolean astc) {    if(busy.exchange(true)) {env->ThrowNew(env->FindClass("java/io/IOException"),"Another conversion is running");return nullptr;}
+extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_convertNative(JNIEnv* env,jclass owner,jstring src,jstring dst,jstring rules,jboolean astc,jint supported_mask) {    if(busy.exchange(true)) {env->ThrowNew(env->FindClass("java/io/IOException"),"Another conversion is running");return nullptr;}
     struct Guard {~Guard(){busy=false;}} guard; cancelled=false;
     try {
         Utf input(env,src),output(env,dst),mapping(env,rules);
@@ -119,7 +119,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_c
         auto checkpoint=[] {if(cancelled.load()) throw std::runtime_error("Installation cancelled");};
         auto progressMethod=env->GetStaticMethodID(owner,"conversionProgress","(Ljava/lang/String;IIIIF)V");
         if(!progressMethod) return nullptr;
-        unsigned textureIndex=0;
+        unsigned textureIndex=0,convertedCount=0,keptCount=0;
         std::string report,error;
         bool ok=BetterEndfieldNext::CustomModel::RewriteBemTextures(input.data,output.data,
             [&](const auto& manifest,auto& texture,auto& bytes) {
@@ -131,10 +131,18 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_c
                     env->CallStaticVoidMethod(owner,progressMethod,label,jint(textureIndex),jint(manifest.at("textures").size()),jint(mip),jint(mips),jfloat(percent));
                     env->DeleteLocalRef(label);
                 };
-                betterendfieldnext::ConvertInstalledTexture(manifest,texture,bytes,table,astc,checkpoint,progress);
+                const int beforeFormat=texture.value("format",0);
+                const size_t beforeSize=bytes.size();
+                betterendfieldnext::ConvertInstalledTexture(manifest,texture,bytes,table,astc,
+                    static_cast<unsigned>(supported_mask),checkpoint,progress);
+                if(texture.value("format",0)!=beforeFormat || bytes.size()!=beforeSize) ++convertedCount;
+                else ++keptCount;
             },checkpoint,report,error);
         if(!ok) throw std::runtime_error(error);
-        return env->NewStringUTF(report.c_str());
+        auto parsed=BetterEndfieldNext::CustomModel::BemJson::parse(report);
+        parsed["converted_textures"]=convertedCount;
+        parsed["kept_textures"]=keptCount;
+        return env->NewStringUTF(parsed.dump().c_str());
     } catch(const std::exception& error) {env->ThrowNew(env->FindClass("java/io/IOException"),error.what());return nullptr;}
 }
 extern "C" JNIEXPORT jstring JNICALL Java_dev_betterendfield_next_BemInstaller_repairNormalsNative(JNIEnv* env,jclass owner,jstring src,jstring dst,jboolean astc) {

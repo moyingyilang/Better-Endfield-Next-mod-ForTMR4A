@@ -45,7 +45,7 @@ final class BemInstaller {
     }
     interface Inspector { JSONObject inspect(File file,boolean skipValidation) throws Exception; }
     static volatile PendingBundle pendingBundle;
-    static native String convertNative(String input, String output, String rules, boolean astc) throws IOException;
+    static native String convertNative(String input, String output, String rules, boolean astc, int supportedMask) throws IOException;
     static native String repairNormalsNative(String input, String output, boolean astc) throws IOException;
     static native String inspectNativeWithOptions(String input, boolean skipValidation) throws IOException;
     static String inspectNative(String input) throws IOException { return inspectNativeWithOptions(input, false); }
@@ -294,7 +294,7 @@ final class BemInstaller {
                         :Text.of("正在自动转换手机纹理（RGBA32）…");
                 loadCodec();
                 try {
-                    convertNative(bemFile.getAbsolutePath(),converted.getAbsolutePath(),normalRules(app),gpu.astc);
+                    convertNative(bemFile.getAbsolutePath(),converted.getAbsolutePath(),normalRules(app),gpu.astc,gpu.supportedMask());
                     if(!converted.isFile() || converted.length()==0)
                         throw new IOException(Text.of("纹理转换未完成"));
                     java.nio.file.Files.move(converted.toPath(),bemFile.toPath(),
@@ -302,7 +302,7 @@ final class BemInstaller {
                 } finally {
                     if(converted.exists()) converted.delete();
                 }
-                item.report.put("texture_mode",gpu.astc?"astc":"rgba32");
+                item.report.put("texture_mode",textureMode(item.report,gpu.astc));
                 item.report.put("astc_converted",gpu.astc);
                 item.report.put("auto_converted",true);
                 item.report.put("normal_repaired",true);
@@ -369,6 +369,15 @@ final class BemInstaller {
         } catch(Throwable ignored) { return "{}"; }
     }
     /** A package keeps its textures only when every format in it is supported. */
+    /** Per-texture conversion may keep some textures; report the real mix. */
+    private static String textureMode(JSONObject result, boolean astc) {
+        int converted=result.optInt("converted_textures",-1);
+        int kept=result.optInt("kept_textures",0);
+        if(converted==0) return "original";
+        if(converted>0 && kept>0) return "mixed";
+        return astc?"astc":"rgba32";
+    }
+
     private static boolean needsTextureRewrite(JSONObject formats, TextureSupport.Profile gpu) {
         if(formats==null) return false; // The native importer always reports it; absence keeps the old path.
         java.util.Iterator<String> keys=formats.keys();
@@ -437,8 +446,8 @@ final class BemInstaller {
                     boolean astc=gpu.astc;
                     status=astc?Text.of("正在转换 ASTC 纹理；大包可能需要数分钟…"):Text.of("设备未报告 ASTC，正在生成 RGBA32 资源…");
                     result=new JSONObject(convertNative(source.getAbsolutePath(),output.getAbsolutePath(),
-                            normalRules(app),astc));
-                    result.put("texture_mode",astc?"astc":"rgba32");
+                            normalRules(app),astc,gpu.supportedMask()));
+                    result.put("texture_mode",textureMode(result,astc));
                     source.delete();
                 } else {
                     result=new JSONObject(inspectNativeWithOptions(source.getAbsolutePath(),skipValidation));
@@ -457,8 +466,8 @@ final class BemInstaller {
                         if(!output.renameTo(original)) throw new IOException(Text.of("无法准备纹理转换"));
                         JSONObject inspected=result;
                         result=new JSONObject(convertNative(original.getAbsolutePath(),output.getAbsolutePath(),
-                                normalRules(app),gpu.astc));
-                        result.put("texture_mode",gpu.astc?"astc":"rgba32");
+                                normalRules(app),gpu.astc,gpu.supportedMask()));
+                        result.put("texture_mode",textureMode(result,gpu.astc));
                         result.put("auto_converted",true);
                         if(inspected.optJSONObject("texture_formats")!=null)
                             result.put("texture_formats",inspected.optJSONObject("texture_formats"));
@@ -739,7 +748,7 @@ final class BemInstaller {
 
                 status = astc ? Text.of("正在转换为 ASTC 格式并流压缩…")
                         : Text.of("设备不支持 ASTC，正在转换为 RGBA32…");
-                convertNative(bemFile.getAbsolutePath(), tempRepaired.getAbsolutePath(), rules, astc);
+                convertNative(bemFile.getAbsolutePath(), tempRepaired.getAbsolutePath(), rules, astc, gpu.supportedMask());
                 if(tempRepaired.isFile() && tempRepaired.length() > 0) {
                     if(bemFile.delete() && tempRepaired.renameTo(bemFile)) {
                         File reportFile = new File(folder, "report.json");
@@ -747,7 +756,7 @@ final class BemInstaller {
                             ? new JSONObject(new String(java.nio.file.Files.readAllBytes(reportFile.toPath()), StandardCharsets.UTF_8))
                             : new JSONObject();
                         reportJson.put("astc_converted", astc);
-                        reportJson.put("texture_mode", astc ? "astc" : "rgba32");
+                        reportJson.put("texture_mode", textureMode(reportJson, astc));
                         reportJson.put("normal_repaired", true);
                         reportJson.put("bytes", bemFile.length());
                         try(FileOutputStream out = new FileOutputStream(reportFile)) {
@@ -764,7 +773,7 @@ final class BemInstaller {
                                 modelName = item.optString("name", modelName);
                                 remote = item.optString("remote", remote);
                                 item.put("astc_converted", astc);
-                                item.put("texture_mode", astc ? "astc" : "rgba32");
+                                item.put("texture_mode", textureMode(item, astc));
                                 item.put("normal_repaired", true);
                                 item.put("bytes", bemFile.length());
                                 break;
