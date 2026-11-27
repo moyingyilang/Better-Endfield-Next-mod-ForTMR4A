@@ -281,7 +281,7 @@ final class BemInstaller {
     static void installPrepared(Context app,PreparedPackage item) throws Exception {
         File bemFile=new File(item.item.directory,"installed.bem");
         if(bemFile.isFile()) {
-            TextureSupport.Profile gpu=TextureSupport.probe();
+            TextureSupport.Profile gpu=TextureSupport.probe(app);
             JSONObject formats=item.report.optJSONObject("texture_formats");
             boolean rewrite=needsTextureRewrite(formats,gpu);
             android.util.Log.i("BetterEndfieldNext.Install",
@@ -433,7 +433,7 @@ final class BemInstaller {
                 JSONObject result;
                 TextureSupport.Profile gpu;
                 if(converting) {
-                    gpu=TextureSupport.probe();
+                    gpu=TextureSupport.probe(app);
                     boolean astc=gpu.astc;
                     status=astc?Text.of("正在转换 ASTC 纹理；大包可能需要数分钟…"):Text.of("设备未报告 ASTC，正在生成 RGBA32 资源…");
                     result=new JSONObject(convertNative(source.getAbsolutePath(),output.getAbsolutePath(),
@@ -442,7 +442,7 @@ final class BemInstaller {
                     source.delete();
                 } else {
                     result=new JSONObject(inspectNativeWithOptions(source.getAbsolutePath(),skipValidation));
-                    gpu=TextureSupport.probe();
+                    gpu=TextureSupport.probe(app);
                     JSONObject formats=result.optJSONObject("texture_formats");
                     boolean rewrite=needsTextureRewrite(formats,gpu);
                     android.util.Log.i("BetterEndfieldNext.Install",
@@ -734,7 +734,7 @@ final class BemInstaller {
                 checkpoint();
                 loadCodec();
                 String rules = normalRules(app);
-                TextureSupport.Profile gpu = TextureSupport.probe();
+                TextureSupport.Profile gpu = TextureSupport.probe(app);
                 boolean astc = gpu.astc;
 
                 status = astc ? Text.of("正在转换为 ASTC 格式并流压缩…")

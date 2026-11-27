@@ -63,6 +63,13 @@ final class BemSource {
         // full read+write of every RAR/7z/ZIP package on the import path.
         try (ParcelFileDescriptor descriptor = app.getContentResolver().openFileDescriptor(uri, "r")) {
             if (descriptor != null) {
+                long archiveSize = descriptor.getStatSize();
+                if (archiveSize > 0) {
+                    long need = Math.max(256L * 1024 * 1024, archiveSize * 4);
+                    if (stage.getUsableSpace() < need) {
+                        throw new Failure(Text.of("存储空间不足，无法解包此文件"));
+                    }
+                }
                 int fd = descriptor.getFd();
                 if (probeArchiveFd(fd) == 1) {
                     File extracted = new File(stage, "extracted");

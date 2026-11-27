@@ -12,8 +12,10 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -107,7 +109,7 @@ int copy_entry(struct archive* reader, const std::string& target, ExtractState& 
 }
 
 int extract_reader(struct archive* reader, const std::string& out_dir,
-                   char* err, unsigned cap) {
+                   unsigned long long archive_size, char* err, unsigned cap) {
     std::error_code ec;
     const fs::path root(out_dir);
     if (!fs::create_directories(root, ec) && !fs::is_directory(root)) {
@@ -153,6 +155,15 @@ int extract_reader(struct archive* reader, const std::string& out_dir,
             continue;
         }
         fs::create_directories(target.parent_path(), ec);
+        if (archive_size > 0) {
+            const unsigned long long generous =
+                std::max(512ull * 1024ull * 1024ull, archive_size * 200ull);
+            if (state.total > generous) {
+                state.error = "suspicious compression ratio";
+                result = 1;
+                break;
+            }
+        }
         if (copy_entry(reader, target, state, err, cap) != 0) {
             result = 1;
             break;
@@ -243,7 +254,11 @@ int be_archive_extract(const char* path, const char* out_dir,
         archive_read_free(reader);
         return 3;
     }
-    const int result = extract_reader(reader, out_dir, err, err_cap);
+    unsigned long long archive_size = 0;
+    std::error_code sizeError;
+    const auto fileSize = fs::file_size(path, sizeError);
+    if (!sizeError) archive_size = fileSize;
+    const int result = extract_reader(reader, out_dir, archive_size, err, err_cap);
     archive_read_close(reader);
     archive_read_free(reader);
     return result;
@@ -262,7 +277,12 @@ int be_archive_extract_fd(int fd, const char* out_dir,
         close_fd_archive(reader, owned_fd);
         return 3;
     }
-    const int result = extract_reader(reader, out_dir, err, err_cap);
+    unsigned long long archive_size = 0;
+    struct stat info {};
+    if (fstat(owned_fd, &info) == 0 && info.st_size > 0) {
+        archive_size = static_cast<unsigned long long>(info.st_size);
+    }
+    const int result = extract_reader(reader, out_dir, archive_size, err, err_cap);
     close_fd_archive(reader, owned_fd);
     return result;
 }

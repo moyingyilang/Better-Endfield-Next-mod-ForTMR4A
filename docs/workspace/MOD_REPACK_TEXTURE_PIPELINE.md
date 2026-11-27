@@ -5,6 +5,7 @@ author: "ForTMR4A 分支文档"
 date: "2026-11-27"
 lang: zh-CN
 toc-title: "目录"
+revision: "v1.1（2026-11-27，按评审意见修订）"
 ---
 
 # 一句话版本
@@ -50,7 +51,10 @@ toc-title: "目录"
 [8] 生成“安装计划”：外观、组件、骨架、材质、纹理
    │
    ▼
-[9] 纹理预处理（见第二部分：设备支持就保留，不支持就重编码）
+[9] 纹理预处理（见第二部分）
+      · 支持 → 保留
+      · 不支持 → ASTC 6x6/4x4
+      · 无 ASTC → ETC2（待运行时接通）→ RGBA32 兜底
    │
    ▼
 [10] 写安装区：generation 目录 + installed.bem + 索引
@@ -262,6 +266,23 @@ ASTC_4x4=48、ASTC_5x5=49、ASTC_6x6=50）。
 - payload 可选择 raw 或 zstd（导入时读取、安装时解压）；
 - 一个纹理一个 payload，或按需共享。
 
+## T2b：BEM format ↔ Unity TextureFormat ↔ 运行时支持
+
+| BEM `format` | Unity `TextureFormat` | 含义 | 当前 BEM 运行时 |
+|---|---|---|---|
+| 4 | RGBA32 | 未压缩 | ✅ |
+| 63 | R8 | 单通道 | ✅ |
+| 10 | DXT1/BC1 | 1-bit alpha | ✅ |
+| 12 | DXT5/BC3 | 插值 alpha | ✅ |
+| 25 | BC7 | 高质量 RGBA | ✅（需设备支持） |
+| 26 | BC4 | 单通道 | ✅ |
+| 27 | BC5 | 双通道法线 | ✅ |
+| 45 / 46 / 47 | ETC2_RGB / RGBA1 / RGBA8 | ETC2 家族 | ❌ 未接入（见状态表） |
+| 48 / 49 / 50 | ASTC_4x4 / 5x5 / 6x6 | ASTC 家族 | ✅ |
+
+> 这张表是**校验清单**：任何新转码目标都必须同时满足“BEM reader 认 + 运行时能上传 +
+> Unity/游戏支持”三件事，缺一不可。ETC2 目前卡在“BEM reader 认不了”。
+
 ## T3：格式统计（census）
 
 导入前先数一遍：`{BC7: 12, BC5: 3, RGBA32: 1}`。
@@ -277,37 +298,81 @@ ASTC_4x4=48、ASTC_5x5=49、ASTC_6x6=50）。
 | BC4/BC5 | `GL_EXT_texture_compression_rgtc` |
 | BC7 | `GL_EXT_texture_compression_bptc` |
 | ASTC | `GL_KHR_texture_compression_astc_ldr` / `GL_OES_texture_compression_astc`，或 GLES 3.2 |
+| ETC2 | GLES 3.0 起步即核心；ES2 驱动看 `GL_OES_compressed_ETC2_pixel_formats` / `GL_EXT_texture_compression_etc2` |
 | 最大尺寸 | `GL_MAX_TEXTURE_SIZE` |
 
 代码：`TextureSupport.java`。
 
-## T5：决策（关键）
+探测结果按 **设备指纹（`Build.FINGERPRINT` + SDK）** 缓存，后续导入不再创建 EGL 上下文；
+驱动升级/换机时指纹变化会自动重新探测。
 
-| 情况 | 处理 |
-|---|---|
-| 包里所有格式设备都支持 | **原样保留**（不重编码，不损失画质） |
-| 有任一格式不支持 | 整个包重编码，保证一致性 |
-| 有 ASTC 能力 | 重编码为 ASTC 6x6（法线贴图可用 4x4） |
-| 没有 ASTC | 重编码为 RGBA32（体积大，但能用） |
+## T5：决策（关键，v1.1 修订）
 
-日志会打印：`texture decision: astc=1 bc1=0 bc3=0 bc4=0 bc5=0 bc7=0 max=8192 formats=... rewrite=true`。
+决策分两层：**格式能力**决定“能否保留”，**策略**决定“逐张还是整包”。
+
+### 5.1 格式能力判定
+
+1. 统计包内纹理格式（census）：例如 `{25:12, 27:3, 4:1}`；
+2. 逐格式查设备能力：
+   - 全部支持 → **原样保留**（零重编码、零画质损失）；
+   - 有格式不支持 → 进入 5.2 的转码决策。
+
+### 5.2 转码目标（优先级）
+
+```
+有 ASTC（GLES 3.2 / KHR / OES）
+  └─ 色彩/遮罩：ASTC 6x6
+  └─ 法线：ASTC 4x4（或保留 XY 语义，见 T7）
+无 ASTC 但有 ETC2（GLES 3.0 起）
+  └─ ETC2：RGB=45 / RGBA1=46 / RGBA8=47   ← 编码器与运行时尚未接通（见第三部分状态表）
+无 ASTC 无 ETC2
+  └─ RGBA32 兜底（体积/带宽最大，仅小纹理或最后手段）
+```
+
+### 5.3 粒度策略（当前实现 vs 计划）
+
+| 策略 | 说明 | 状态 |
+|---|---|---|
+| 整包一致重编码 | 任一张不支持就整个包重编码；逻辑简单、结果一致，但可能为一张 BC7 牺牲整包画质与耗时 | **当前实现** |
+| 逐张/按材质组 | 支持的保留、不支持的才转码；法线/UI/遮罩分组 | 计划中（需要安装器按纹理粒度写回 + 一致性开关） |
+
+> 评审建议的“按纹理/材质组逐张决策 + 整包一致性开关”是对的，但它依赖
+> 安装器支持**部分纹理替换**（当前 `texture_install` 是整包级转换）。
+> 这列为下一阶段首要工作，见文末状态表。
+
+日志会打印：`texture decision: astc=1 etc2=1 bc1=0 ... formats=... rewrite=true`。
 
 ## T6：解码
 
 把 BC/ASTC 压缩块解成 RGBA8。法线贴图额外保留“原始编码信息”，用于后续修复。
 
-## T7：法线修复（需要时）
+## T7：法线修复与语义（v1.1 明确）
 
-BC5 存的是 XY 两通道，Z 要重建：
-`Z = sqrt(max(0, 1 - X² - Y²))`，再归一化。
-只对检测为“法线候选”的纹理做，其它纹理原样。
+**问题**：BC5 存 XY 两通道，Z 由 Shader 重建；重编码成 ASTC 后如果只存 XY、而游戏
+Shader 按 RGB 采样，或反过来，就会语义不匹配。
 
-## T8：重编码
+**当前实现（已确定，不是猜测）**：
 
-- ASTC：`astcenc`，质量 `ASTCENC_PRE_FAST`，块大小 6x6（或 4x4）；
-- 多线程：`min(4, CPU)` 线程；
-- 限制：单纹理 ≤ 64 MiB、边长 ≤ 8192；超限自动降 mip/缩放；
-- 保留 mip 链。
+- 对检测为法线的纹理：解码 → 重建 Z → 归一化，存成 **RGB 法线**；
+- manifest 写 `semantic = "normal"`、`normal_encoding = "xyz-unorm"`；
+- 运行时 BEM reader 按 `xyz-unorm`（RGB 三通道法线）处理，和游戏 Android 原生
+  ASTC 法线贴图的语义一致；
+- 非法线纹理完全不动。
+
+也就是说：**ASTC 里存的是重建后的 RGB 法线，不保留 BC5 的双通道语义**；
+若将来要保留双通道（XY + Shader 重建），需要同时改 `normal_encoding` 和游戏 Shader 契约，
+不能只改一边。
+
+## T8：重编码（v1.1 补充 sRGB/mip/对齐）
+
+- ASTC：`astcenc`，质量 `ASTCENC_PRE_FAST`；
+- **sRGB**：色彩纹理用 `ASTCENC_PRF_LDR_SRGB`，线性数据用 `ASTCENC_PRF_LDR`；
+  与 BEM manifest 的 `srgb` 字段一致；
+- **块大小**：色彩/遮罩 6x6，法线 4x4；
+- **mip**：逐级重编码，不跳过任何一级；
+- **非块对齐尺寸**：ASTC 编码器负责边缘块填充；BC 源要求宽高 4 的倍数（BEM 校验会拦）；
+- 多线程：`min(4, CPU)`；
+- 限制：单纹理 ≤ 64 MiB、边长 ≤ 8192；超限自动降 mip/缩放。
 
 ## T9：写回与校验
 
@@ -353,6 +418,24 @@ BC5 存的是 XY 两通道，Z 要重建：
 4. **法线**：BC5 法线在重编码前先修复；
 5. **可观测**：日志打印设备能力与决策，方便排查。
 
+### 实现状态表（v1.1）
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| EGL 能力探测（BC/ASTC/最大尺寸） | ✅ 已实现 | `TextureSupport` |
+| ETC2 **能力**探测 | ✅ 已实现（仅日志/规划） | `etc2=` 字段，支撑决策树 |
+| ETC2 **编码 + 运行时** | ⏳ 计划 | 需 ETC2 编码器（如 etcpak）+ BEM reader 支持 45/46/47 + 运行时上传映射 |
+| 设备能力缓存 | ✅ 已实现 | 按 `Build.FINGERPRINT + SDK` 缓存，避免每次导入建 EGL 上下文 |
+| 整包重编码 | ✅ 当前策略 | 简单一致，代价见 T5 |
+| 逐张/材质组重编码 + 一致性开关 | ⏳ 计划 | 安装器需支持部分纹理写回 |
+| 法线重编码语义 | ✅ 已明确 | RGB + `normal_encoding=xyz-unorm` |
+| 转码结果缓存（源 hash+目标格式+块大小） | ⏳ 计划 | 重装/切换外观时可复用 |
+| Vulkan 格式特性探测 | ⏳ 计划 | 游戏若走 Vulkan，GLES 扩展不完全等价；记录后用于决策 |
+| 压缩比/空间预检 | ✅ 已实现 | 解压比 > max(512MiB, 200×包体) 拒绝；解包前检查可用空间 |
+| 索引原子写 | ✅ 已实现 | `AtomicFile` + generation 目录 |
+| 并发导入互斥 | ✅ 已实现 | `BemInstaller` 单 worker + synchronized `busy` |
+| 崩溃恢复扫描 | ⏳ 计划 | generation + 索引已有回退基础，可加启动扫描 |
+
 ## 其它可行路线
 
 | 方案 | 说明 | 代价 |
@@ -385,10 +468,13 @@ BC5 存的是 XY 两通道，Z 要重建：
 
 # 附：性能基线（宿主实测）
 
-| 输入 | 输出 | 耗时 |
-|---|---|---|
-| EFF `lvtsfw`（54 MB 目录） | 26 MB BEM | 448 ms |
-| EFMI `edmin_maid`（39 MB 目录） | 73 MB BEM | 801 ms |
+| 输入 | 输出 | 耗时 | 环境/参数 |
+|---|---|---|---|
+| EFF `lvtsfw`（54 MB 目录） | 26 MB BEM | 448 ms | Termux aarch64 宿主，转换不涉及 ASTC |
+| EFMI `edmin_maid`（39 MB 目录） | 73 MB BEM | 801 ms | 同上 |
+
+> 设备上还要加：解包写盘、ASTC 重编码（`min(4,CPU)` 线程、`ASTCENC_PRE_FAST`、含全部 mip）、
+> 安装写盘。设备实测基线待补（骁龙/天玑各一台，记录包大小/纹理数/峰值内存）。
 
 设备上看：`logcat -s BetterEndfieldNext.Import BetterEndfieldNext.Install`，
 关注 `stage=extract-fd / copy / convert` 与纹理重编码耗时。
