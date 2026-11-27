@@ -2,11 +2,15 @@
 
 [English](README.en.md) | [简体中文](README.md)
 
+> **This branch is a fork of [Better Endfield Next](https://github.com/Dr-hydra/Better-Endfield)**. It mainly merges the author's related repositories and development work for this fork; because of the build-device architecture limits, desktop targets are not built. Instead it develops an Android UI that diverges substantially from upstream. The repository's stack is moving to C/C++/Rust to trade cross-platform compatibility for single-architecture on-device performance; the UI uses Kotlin/Compose and will gradually support MIUIX, EFUI and Material Design themes.
+>
 > **Platform scope of this branch (ForTMR4A)**: **Android only** (arm64, LSPosed / libxposed API 102). **Linux is a development/build host only** and produces no Linux runtime. **Windows support has been removed**; `ui/`, `installer/`, `native/loaders/` and the Windows-only modules are kept for reference and are no longer built.
 >
-> This branch is the mod layer for [ForTMR2](https://github.com/moyingyilang/ForTMR2): mod manifests and IR use ForTMR2's `mod.toml` (`efml-core`), resource access uses the `efml4a_source` C interface from `lib/`, and the render backend maps to its Vulkan layer. The language policy follows CRX (C main line / Rust leaves / C++ host). See [FORTMR4A.md](docs/workspace/FORTMR4A.md).
+> This branch is the mod layer for [ForTMR2](https://github.com/moyingyilang/ForTMR2): mod manifests and IR use ForTMR2's `mod.toml` (`efml-core`), resource access uses the `efml4a_source` C interface from `lib/`, and the render backend maps to its Vulkan layer. The language policy follows C/C++ first with Rust as a leaf language, and efficiency is the primary goal. See [FORTMR4A.md](docs/workspace/FORTMR4A.md).
 
-Better Endfield Next mod ForTMR4A is an open-source modular toolkit for the Android client of *Arknights: Endfield*, inheriting BEM models, MMD playback, camera and UI enhancements, per-character voice languages and title-screen customization from Better Endfield Next. Android is the only product platform; native module sources shared with the former Windows build stay under `native/modules/` and are built for Android only. The format layer for BEM/MMD content will migrate to ForTMR2's `mod.toml`/IR converter.
+Better Endfield Next mod ForTMR4A is an open-source modular toolkit for the Android client of *Arknights: Endfield*, inheriting BEM models, MMD playback, camera and UI enhancements, per-character voice languages and title-screen customization from Better Endfield Next. Android is the only product platform; native module sources shared with the former Windows build stay under `native/modules/` and are built for Android only. The format layer for BEM/MMD content will migrate to ForTMR2's `mod.toml`/IR converter; this fork will keep following upstream updates.
+
+ForTMR4A's positioning is a rewritten, more feature-rich reimplementation of the upstream project. Many thanks to the upstream [BEN](https://github.com/Dr-hydra/Better-Endfield) project and its [author](https://github.com/Dr-hydra) for making ForTMR/2 genuinely useful.
 
 [Release notes](CHANGELOG.md) · [Android setup/build guide](android/README.md) · [BEM creator guide](docs/custom_model/BEM_CREATOR_GUIDE.en.md) · [ForTMR2 public infrastructure](https://github.com/moyingyilang/ForTMR2) · [Upstream Better Endfield](https://github.com/Dr-hydra/Better-Endfield)
 
