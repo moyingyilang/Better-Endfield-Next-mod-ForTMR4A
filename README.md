@@ -2,11 +2,15 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-> **本分支（ForTMR4A）平台范围**：仅支持 **Android**（arm64，LSPosed / libxposed API 102）；**Linux 仅作为开发与构建宿主**，不产出 Linux 运行时；**Windows 支持已移除**。`ui/`、`installer/`、`native/loaders/` 与 Windows 专用模块暂留作参考，不再参与构建。
+>**本分支是[Better Endfield Next](https://github.com/Dr-hydra/Better-Endfield)的分支**，主要和本Fork相同作者的部分仓库及其开发成果合并，由于编译设备架构限制，desktop端不参与构建，作为补足，会进行与上游分叉极多的Android侧UI开发，另外此仓库的技术栈也全面转向C/C++/Rust，以跨平台兼容性换取单架构设备侧运行效率，UI侧使用Kotlin/compose，在以后会逐渐支持MIUIX，EFUI，Material Design等主题
 >
-> 本分支是 [ForTMR2](https://github.com/moyingyilang/ForTMR2) 的 mod 层：mod 清单与 IR 采用 ForTMR2 的 `mod.toml`（`efml-core`），资源读取采用 `lib/` 的 `efml4a_source` C 接口，渲染后端对接其 Vulkan 层；语言政策遵循 CRX（C 主链路 / Rust 叶子 / C++ 宿主）。集成与清退方案见 [FORTMR4A.md](docs/workspace/FORTMR4A.md)。
+> **本分支（ForTMR4A）平台范围**：仅支持 **Android**（arm64，LSPosed / libxposed API 102）；**Linux 仅作为开发与构建宿主**，不产出 Linux 运行时；**Windows 支持已移除**。`ui/`、`installer/`、`native/loaders/` 与 Windows 专用模块暂留作参考，不再参与构建
+>
+> 本分支是 [ForTMR2](https://github.com/moyingyilang/ForTMR2) 的 mod 层：mod 清单与 IR 采用 ForTMR2 的 `mod.toml`（`efml-core`），资源读取采用 `lib/` 的 `efml4a_source` C 接口，渲染后端对接其 Vulkan 层；开发语言政策遵循以C/C++为主，Rust为辅的原则，以效率为第一追求目标。集成与清退方案见 [FORTMR4A.md](docs/workspace/FORTMR4A.md)
 
-Better Endfield Next mod ForTMR4A 是面向《明日方舟：终末地》Android 端的开源模块化工具，继承 Better Endfield Next 的 BEM 模型、MMD 播放、相机与界面增强、按角色配音、开屏自定义等能力。Android 是唯一产品平台；原 Windows 与 Android 共用的原生模块源码保留在 `native/modules/`，仅按 Android 目标编译。BEM/MMD 创作物的格式层将迁移为 ForTMR2 的 `mod.toml`/IR 转换器。
+Better Endfield Next mod ForTMR4A 是面向《明日方舟：终末地》Android 端的开源模块化工具，继承 Better Endfield Next 的 BEM 模型、MMD 播放、相机与界面增强、按角色配音、开屏自定义等能力。Android 是唯一产品平台；原 Windows 与 Android 共用的原生模块源码保留在 `native/modules/`，仅按 Android 目标编译。BEM/MMD 创作物的格式层将迁移为 ForTMR2 的 `mod.toml`/IR 转换器，本Fork会一直跟随上游项目的更新
+
+本项目的定位是对上游项目的更换技术栈重写和更多功能的添加，总之，非常感谢上游项目[BEN](https://github.com/Dr-hydra/Better-Endfield)和其[作者](https://github.com/Dr-hydra)的贡献，让ForTMR/2有了真正的用武之地
 
 [更新说明](CHANGELOG.md) · [Android 使用与构建](android/README.md) · [BEM 创作者指南](docs/custom_model/BEM_CREATOR_GUIDE.md) · [ForTMR2 公开基础设施](https://github.com/moyingyilang/ForTMR2) · [上游 Better Endfield](https://github.com/Dr-hydra/Better-Endfield)
 
