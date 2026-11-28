@@ -1,4 +1,6 @@
 bin/
+!native/bem/src/bin/
+!native/bem/src/bin/be-bem.rs
 obj/
 artifacts/
 /research/
